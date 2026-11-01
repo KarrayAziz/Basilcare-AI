@@ -1,0 +1,14 @@
+# Build output
+target/
+__pycache__/
+.venv/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Secrets
+.env
+*.pem
+*.key

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BasilCare - Sign in</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #eef4ec; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+        form { background: #fff; padding: 2rem; border-radius: 12px; width: min(90vw, 340px); display: grid; gap: .8rem; }
+        input, button { padding: .7rem; font-size: 1rem; border-radius: 8px; border: 1px solid #bbb; }
+        button { background: #2f6b3a; color: #fff; border: 0; cursor: pointer; }
+    </style>
+</head>
+<body>
+<form id="login" method="post">
+    <h1>BasilCare</h1>
+    <input name="username" placeholder="Username" autocomplete="username" required>
+    <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+</form>
+<script>
+    // Page URL: /iam/authorize?client_id=...  ->  form posts to /iam/login?client_id=...
+    document.getElementById("login").action = "login" + window.location.search;
+</script>
+</body>
+</html>

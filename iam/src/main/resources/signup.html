@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BasilCare - Sign up</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #eef4ec; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+        form { background: #fff; padding: 2rem; border-radius: 12px; width: min(90vw, 340px); display: grid; gap: .8rem; }
+        input, button { padding: .7rem; font-size: 1rem; border-radius: 8px; border: 1px solid #bbb; }
+        button { background: #2f6b3a; color: #fff; border: 0; cursor: pointer; }
+    </style>
+</head>
+<body>
+<form method="post" action="register">
+    <h1>Create your account</h1>
+    <input name="username" placeholder="Username (lowercase)" pattern="[a-z0-9._-]{3,32}" required>
+    <input name="email" type="email" placeholder="E-mail" required>
+    <input name="password" type="password" placeholder="Password (10+ characters)" minlength="10" required>
+    <button type="submit">Sign up</button>
+</form>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Development stack: docker compose -f deploy/compose.yaml up -d
+name: basilcare
+
+services:
+  mongodb:
+    image: mongo:7.0
+    ports: ["27017:27017"]          # exposed so you can inspect it with MongoDB Compass
+    volumes: [mongo-data:/data/db]
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    command: mosquitto -c /mosquitto-no-auth.conf   # anonymous access: development only
+    ports: ["1883:1883"]
+
+  wildfly:
+    image: quay.io/wildfly/wildfly:latest   # "latest" is the JDK 25 image since WildFly 41
+    ports: ["8080:8080"]
+    environment:
+      JNOSQL_MONGODB_HOST: mongodb:27017     # overrides jnosql.mongodb.host
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-now}
+    volumes:
+      - ../iam/target/iam.war:/opt/jboss/wildfly/standalone/deployments/iam.war:ro
+      - ../api/target/api.war:/opt/jboss/wildfly/standalone/deployments/api.war:ro
+    depends_on: [mongodb]
+
+volumes:
+  mongo-data:

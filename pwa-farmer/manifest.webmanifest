@@ -1,0 +1,9 @@
+{
+  "name": "BasilCare Farmer",
+  "short_name": "BasilCare",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2f6b3a",
+  "icons": [{ "src": "images/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

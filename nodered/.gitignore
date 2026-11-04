@@ -1,0 +1,10 @@
+# This folder is Node-RED's /data. Node-RED writes these at runtime;
+# only flows.json, settings.js and package.json belong to the project.
+.config.*
+.flows*.backup
+.sessions.json
+flows_cred.json
+node_modules/
+lib/
+context/
+.npm/

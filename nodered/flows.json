@@ -1,0 +1,264 @@
+[
+    {
+        "id": "b5c1a0e0f1a20001",
+        "type": "tab",
+        "label": "BasilCare ingestion",
+        "disabled": false,
+        "info": "Receives every message of every BasilCare device and checks it against\n**docs/mqtt-contract.md** (version 1).\n\n1. **All BasilCare devices**: MQTT subscription to `basilcare/v1/+/#`, QoS 1, persistent\n   session, so the broker keeps the messages that arrive while Node-RED restarts.\n2. **Check against MQTT contract**: topic, JSON, device_id, units, plausible ranges,\n   timestamps with offset. Valid messages leave on output 1 with `msg.kind` and the parsed\n   payload; invalid ones on output 2 with `msg.errors`.\n3. **Route by message type**: one output per `msg.kind`.\n\nNext steps: send telemetry, status, pump state and screening results to the Jakarta EE API\n(storage, incidents); turn invalid messages into device incidents."
+    },
+    {
+        "id": "b5c1a0e0f1a20010",
+        "type": "comment",
+        "z": "b5c1a0e0f1a20001",
+        "name": "Devices → Mosquitto → check → route  (next: Jakarta EE API)",
+        "info": "Receives every message of every BasilCare device and checks it against\n**docs/mqtt-contract.md** (version 1).\n\n1. **All BasilCare devices**: MQTT subscription to `basilcare/v1/+/#`, QoS 1, persistent\n   session, so the broker keeps the messages that arrive while Node-RED restarts.\n2. **Check against MQTT contract**: topic, JSON, device_id, units, plausible ranges,\n   timestamps with offset. Valid messages leave on output 1 with `msg.kind` and the parsed\n   payload; invalid ones on output 2 with `msg.errors`.\n3. **Route by message type**: one output per `msg.kind`.\n\nNext steps: send telemetry, status, pump state and screening results to the Jakarta EE API\n(storage, incidents); turn invalid messages into device incidents.",
+        "x": 300,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20011",
+        "type": "mqtt in",
+        "z": "b5c1a0e0f1a20001",
+        "name": "All BasilCare devices",
+        "topic": "basilcare/v1/+/#",
+        "qos": "1",
+        "datatype": "utf8",
+        "broker": "b5c1a0e0f1a20002",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 160,
+        "wires": [
+            [
+                "b5c1a0e0f1a20012"
+            ]
+        ]
+    },
+    {
+        "id": "b5c1a0e0f1a20012",
+        "type": "function",
+        "z": "b5c1a0e0f1a20001",
+        "name": "Check against MQTT contract",
+        "func": "// Checks every MQTT message against docs/mqtt-contract.md (version 1).\n//\n// Output 1, valid:   msg.kind = \"telemetry\" | \"status\" | \"pump_state\" | \"pump_cmd\" | \"screening\",\n//                    msg.device_id, msg.payload = the parsed JSON object,\n//                    msg.received_at = arrival time (needed for a Last Will, whose reported_at is null).\n// Output 2, invalid: msg.errors = list of problems, msg.payload = the raw text.\n//                    A device sending invalid messages has a sensor or software fault (contract section 7).\n\nconst SENSORS = {\n    air_temperature:   { unit: \"degC\",  min: -10, max: 60 },\n    air_humidity:      { unit: \"%RH\",   min: 0,   max: 100 },\n    ph:                { unit: \"pH\",    min: 0,   max: 14 },\n    ec:                { unit: \"mS/cm\", min: 0,   max: 20 },\n    water_temperature: { unit: \"degC\",  min: 0,   max: 50 },\n    water_level:       { unit: \"%\",     min: 0,   max: 100 },\n};\nconst DEVICE_ID = /^[a-z0-9-]{3,32}$/;\nconst TIMESTAMP = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?([+-]\\d{2}:\\d{2}|Z)$/;   // offset required\n\n// An empty retained message is how a retained topic gets cleared: nothing to check.\nif (msg.payload === \"\") {\n    return null;\n}\n\nconst errors = [];\nconst check = (ok, problem) => { if (!ok) errors.push(problem); };\nconst isTime = (v) => typeof v === \"string\" && TIMESTAMP.test(v) && !isNaN(Date.parse(v));\nconst isText = (v) => typeof v === \"string\" && v.length > 0;\nconst isBool = (v) => typeof v === \"boolean\";\n\n// 1. Topic: basilcare/v1/{device_id}/...\nconst parts = msg.topic.split(\"/\");\nconst device = parts[2];\nconst rest = parts.slice(3).join(\"/\");\nconst KINDS = { \"status\": \"status\", \"pump/state\": \"pump_state\", \"pump/cmd\": \"pump_cmd\", \"screening\": \"screening\" };\nlet kind = KINDS[rest] || null;\nif (parts.length === 5 && parts[3] === \"telemetry\") {\n    kind = \"telemetry\";\n}\ncheck(kind !== null, \"unknown topic\");\ncheck(DEVICE_ID.test(device || \"\"), \"invalid device_id in the topic\");\n\n// 2. Payload: one JSON object whose device_id matches the topic\nlet p = null;\ntry {\n    p = JSON.parse(msg.payload);\n} catch (e) {\n    // p stays null\n}\nconst isObject = p !== null && typeof p === \"object\" && !Array.isArray(p);\ncheck(isObject, \"payload is not a JSON object\");\n\n// 3. Fields, per message type\nif (kind && isObject) {\n    check(p.device_id === device, \"device_id differs from the topic\");\n\n    if (kind === \"telemetry\") {\n        const sensor = parts[4];\n        const spec = SENSORS[sensor];\n        check(spec, \"unknown sensor \" + sensor);\n        check(p.sensor === sensor, \"sensor differs from the topic\");\n        if (spec) {\n            check(p.unit === spec.unit, \"unit must be \" + spec.unit);\n            check(typeof p.value === \"number\" && p.value >= spec.min && p.value <= spec.max,\n                  \"value outside the plausible range \" + spec.min + \" to \" + spec.max);\n        }\n        check(isTime(p.measured_at), \"measured_at must be ISO 8601 with an offset\");\n        check(isBool(p.calibrated), \"calibrated must be true or false\");\n        check(Number.isInteger(p.seq) && p.seq >= 1, \"seq must be an integer >= 1\");\n        check(isBool(p.buffered), \"buffered must be true or false\");\n    }\n    else if (kind === \"status\") {\n        check(isBool(p.online), \"online must be true or false\");\n        check(isTime(p.started_at), \"started_at must be ISO 8601 with an offset\");\n        check(Number.isInteger(p.telemetry_interval_s) && p.telemetry_interval_s >= 1,\n              \"telemetry_interval_s must be an integer >= 1\");\n        // reported_at is null only in the Last Will, which always says online: false\n        check(isTime(p.reported_at) || (p.reported_at === null && p.online === false),\n              \"reported_at must be ISO 8601 with an offset (null only in the Last Will)\");\n    }\n    else if (kind === \"pump_state\") {\n        check([\"on\", \"off\", \"fault\"].includes(p.state), \"state must be on, off or fault\");\n        check(p.until === null || isTime(p.until), \"until must be null or ISO 8601 with an offset\");\n        check(p.command_id === null || isText(p.command_id), \"command_id must be null or text\");\n        check([null, \"executed\", \"rejected\"].includes(p.result), \"result must be null, executed or rejected\");\n        check(isTime(p.reported_at), \"reported_at must be ISO 8601 with an offset\");\n    }\n    else if (kind === \"pump_cmd\") {\n        check(isText(p.command_id), \"command_id is required\");\n        check([\"on\", \"off\"].includes(p.action), \"action must be on or off\");\n        check(p.action !== \"on\" || (Number.isInteger(p.duration_s) && p.duration_s > 0),\n              \"duration_s must be a positive integer for on\");\n        check(isTime(p.expires_at), \"expires_at must be ISO 8601 with an offset\");\n    }\n    else if (kind === \"screening\") {\n        check(isText(p.image_id), \"image_id is required\");\n        check(isTime(p.captured_at), \"captured_at must be ISO 8601 with an offset\");\n        check(isText(p.model_version), \"model_version is required\");\n        check(isText(p.label), \"label is required\");\n        check(typeof p.confidence === \"number\" && p.confidence >= 0 && p.confidence <= 1,\n              \"confidence must be a number from 0 to 1\");\n        check(isBool(p.quality_ok), \"quality_ok must be true or false\");\n        check(Array.isArray(p.quality_issues), \"quality_issues must be a list\");\n        check(isBool(p.review_required), \"review_required must be true or false\");\n    }\n}\n\nif (errors.length > 0) {\n    msg.errors = errors;\n    return [null, msg];\n}\nmsg.kind = kind;\nmsg.device_id = device;\nmsg.payload = p;\nmsg.received_at = new Date().toISOString();\nreturn [msg, null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "outputLabels": [
+            "valid",
+            "invalid"
+        ],
+        "x": 420,
+        "y": 160,
+        "wires": [
+            [
+                "b5c1a0e0f1a20013"
+            ],
+            [
+                "b5c1a0e0f1a20020"
+            ]
+        ]
+    },
+    {
+        "id": "b5c1a0e0f1a20013",
+        "type": "switch",
+        "z": "b5c1a0e0f1a20001",
+        "name": "Route by message type",
+        "property": "kind",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "telemetry",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "status",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "pump_state",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "pump_cmd",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "screening",
+                "vt": "str"
+            }
+        ],
+        "checkall": "false",
+        "repair": false,
+        "outputs": 5,
+        "outputLabels": [
+            "telemetry",
+            "status",
+            "pump_state",
+            "pump_cmd",
+            "screening"
+        ],
+        "x": 680,
+        "y": 160,
+        "wires": [
+            [
+                "b5c1a0e0f1a20014"
+            ],
+            [
+                "b5c1a0e0f1a20015"
+            ],
+            [
+                "b5c1a0e0f1a20016"
+            ],
+            [
+                "b5c1a0e0f1a20017"
+            ],
+            [
+                "b5c1a0e0f1a20018"
+            ]
+        ]
+    },
+    {
+        "id": "b5c1a0e0f1a20014",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "telemetry",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 910,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20015",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "device status",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 920,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20016",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "pump state",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 910,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20017",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "pump commands (sent by the backend)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 990,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20018",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "screening",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 910,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20020",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "invalid messages",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 690,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20002",
+        "type": "mqtt-broker",
+        "name": "Mosquitto",
+        "broker": "${MQTT_HOST}",
+        "port": "${MQTT_PORT}",
+        "clientid": "basilcare-nodered",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": false,
+        "autoUnsubscribe": false,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]

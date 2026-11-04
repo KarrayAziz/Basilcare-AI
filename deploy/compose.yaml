@@ -12,6 +12,19 @@ services:
     command: mosquitto -c /mosquitto-no-auth.conf   # anonymous access: development only
     ports: ["1883:1883"]
 
+  nodered:
+    image: nodered/node-red:4.0.9
+    ports: ["1880:1880"]                    # editor: http://localhost:1880
+    environment:
+      TZ: Africa/Tunis                      # local time in the Node-RED log
+      MQTT_HOST: mosquitto                  # used by the flow's broker node: ${MQTT_HOST}
+      MQTT_PORT: "1883"
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-}   # empty in development
+      NODE_RED_ADMIN_HASH: ${NODE_RED_ADMIN_HASH:-}                 # empty = editor without login
+    volumes:
+      - ../nodered:/data                    # Deploy in the editor saves to the repository's flows.json
+    depends_on: [mosquitto]
+
   wildfly:
     image: quay.io/wildfly/wildfly:latest   # "latest" is the JDK 25 image since WildFly 41
     ports: ["8080:8080"]

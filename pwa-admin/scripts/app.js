@@ -1,4 +1,4 @@
-import { signIn, signUp, signOut, handleRedirect, token } from "./auth.js";
+import { signIn, signOut, handleRedirect, token } from "./auth.js";
 
 const routes = {
     "/": "pages/welcome.html",
@@ -18,7 +18,6 @@ async function render() {
 
     const signedIn = token() !== null;
     document.getElementById("signin").hidden = signedIn;
-    document.getElementById("signup").hidden = signedIn;
     document.getElementById("signout").hidden = !signedIn;
 
     if (path === "/dashboard") await showMe();
@@ -34,7 +33,6 @@ async function showMe() {
 }
 
 document.getElementById("signin").addEventListener("click", signIn);
-document.getElementById("signup").addEventListener("click", signUp);
 document.getElementById("signout").addEventListener("click", signOut);
 window.addEventListener("hashchange", render);
 

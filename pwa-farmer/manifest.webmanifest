@@ -1,6 +1,6 @@
 {
-  "name": "BasilCare Admin",
-  "short_name": "BasilCare",
+  "name": "BasilCare Farmer",
+  "short_name": "BasilCare Farmer",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -2,7 +2,7 @@
 const config = {
     clientId: "basilcare-pwa-admin",
     iam: "http://localhost:8080/iam",
-    redirectUri: window.location.origin + "/",   // must equal tenant.farmer.redirect in the IAM
+    redirectUri: window.location.origin + "/",   // must equal tenant.admin.redirect in the IAM
 };
 
 const base64url = (bytes) =>
@@ -26,10 +26,6 @@ export async function signIn() {
         code_challenge_method: "S256",
     });
     window.location.assign(`${config.iam}/authorize?${query}`);
-}
-
-export function signUp() {
-    window.location.assign(`${config.iam}/register?client_id=${config.clientId}`);
 }
 
 export function signOut() {

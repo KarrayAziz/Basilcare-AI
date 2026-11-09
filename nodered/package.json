@@ -1,0 +1,6 @@
+{
+    "name": "basilcare-nodered",
+    "description": "BasilCare Node-RED flows. Extra palette nodes installed from the editor are listed here.",
+    "version": "0.1.0",
+    "private": true
+}

@@ -1,0 +1,21 @@
+name: IAM CI
+on:
+  pull_request:
+    paths: ["iam/**", ".github/workflows/iam-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["iam/**", ".github/workflows/iam-ci.yml"]
+permissions:
+  contents: read
+jobs:
+  verify-iam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: iam/pom.xml
+      - run: mvn --batch-mode --file iam/pom.xml verify

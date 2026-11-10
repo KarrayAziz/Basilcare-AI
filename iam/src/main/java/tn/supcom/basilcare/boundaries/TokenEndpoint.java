@@ -60,7 +60,11 @@ public class TokenEndpoint {
                 || !Pkce.matches(codeVerifier, grant.codeChallenge())) {
             return error("invalid_grant");
         }
-        Identity identity = identities.findById(grant.username()).orElseThrow();
+        Optional<Identity> current = identities.findById(grant.username());
+        if (current.isEmpty() || !current.get().isActive()) {
+            return error("invalid_grant"); // the account may have been deleted/disabled after login
+        }
+        Identity identity = current.get();
         String accessToken = jwt.issue(grant.clientId(), identity.getUsername(), identity.getRole(), grant.scope());
         return Response.ok(Json.createObjectBuilder()
                         .add("access_token", accessToken)

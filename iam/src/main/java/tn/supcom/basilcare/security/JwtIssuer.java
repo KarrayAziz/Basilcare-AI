@@ -17,6 +17,8 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.Optional;
+import java.io.StringReader;
 
 /**
  * Creates and signs access tokens. @Singleton + @Startup: one instance, created when
@@ -88,6 +90,39 @@ public class JwtIssuer {
                 .add("x", b64(raw))
                 .build();
         return Json.createObjectBuilder().add("keys", Json.createArrayBuilder().add(jwk)).build();
+    }
+
+    /** Verify an Admin PWA access token before allowing account-management requests. */
+    public Optional<String> adminSubject(String token) {
+        try {
+            String[] parts = token.split("\\.", -1);
+            if (parts.length != 3) return Optional.empty();
+            JsonObject header = decode(parts[0]);
+            if (!"EdDSA".equals(header.getString("alg", ""))
+                    || !kid.equals(header.getString("kid", ""))) return Optional.empty();
+            Signature verifier = Signature.getInstance("Ed25519");
+            verifier.initVerify(keyPair.getPublic());
+            verifier.update((parts[0] + "." + parts[1]).getBytes(StandardCharsets.US_ASCII));
+            if (!verifier.verify(Base64.getUrlDecoder().decode(parts[2]))) return Optional.empty();
+            JsonObject claims = decode(parts[1]);
+            if (!issuer.equals(claims.getString("iss", ""))
+                    || !"basilcare-pwa-admin".equals(claims.getString("aud", ""))
+                    || claims.getJsonNumber("exp").longValue() <= Instant.now().getEpochSecond()
+                    || !claims.getJsonArray("groups").contains(Json.createValue("Admin"))) {
+                return Optional.empty();
+            }
+            String subject = claims.getString("sub");
+            return subject.isBlank() ? Optional.empty() : Optional.of(subject);
+        } catch (RuntimeException | GeneralSecurityException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private static JsonObject decode(String part) {
+        try (var reader = Json.createReader(new StringReader(
+                new String(Base64.getUrlDecoder().decode(part), StandardCharsets.UTF_8)))) {
+            return reader.readObject();
+        }
     }
 
     private static String b64(byte[] bytes) {

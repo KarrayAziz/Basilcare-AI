@@ -1,4 +1,6 @@
 import { signIn, signOut, handleRedirect, token } from "./auth.js";
+import { API } from "./api.js";
+import { startDashboard, stopDashboard } from "./dashboard.js";
 
 const routes = {
     "/": "pages/welcome.html",
@@ -14,18 +16,22 @@ async function render() {
         return;
     }
     const file = routes[path] ?? routes["/"];
+    stopDashboard();
     document.getElementById("main").innerHTML = await (await fetch(file)).text();
 
     const signedIn = token() !== null;
     document.getElementById("signin").hidden = signedIn;
     document.getElementById("signout").hidden = !signedIn;
 
-    if (path === "/dashboard") await showMe();
+    if (path === "/dashboard") {
+        await showMe();
+        await startDashboard();
+    }
 }
 
 // Calls the protected API endpoint to prove the token works end to end.
 async function showMe() {
-    const response = await fetch("http://localhost:8080/api/me", {
+    const response = await fetch(`${API}/me`, {
         headers: { Authorization: `Bearer ${token()}` },
     });
     const me = response.ok ? await response.json() : { username: `error ${response.status}` };

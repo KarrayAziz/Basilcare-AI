@@ -12,11 +12,14 @@ The labels and the model version come from the JSON sidecar written next to the 
   {"version": "leafscreen-0.1-int8", "labels": ["healthy", "stressed"], "input_size": 224}
 """
 import json
+import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -27,17 +30,53 @@ class Prediction:
     latency_ms: float
 
 
-def load_interpreter(model_path, threads=2):
-    errors = []
-    for module, attribute in (("ai_edge_litert.interpreter", "Interpreter"),
-                              ("tflite_runtime.interpreter", "Interpreter"),
-                              ("tensorflow.lite", "Interpreter")):
-        try:
-            cls = getattr(__import__(module, fromlist=[attribute]), attribute)
-            return cls(model_path=str(model_path), num_threads=threads)
-        except ImportError as error:
-            errors.append(f"{module}: {error}")
-    raise ImportError("no TFLite runtime installed (pip install ai-edge-litert). Tried: " + "; ".join(errors))
+def _interpreter_classes():
+    """Yields (name, class) for each installed TFLite runtime, preferred first."""
+    try:
+        from ai_edge_litert.interpreter import Interpreter
+        yield "ai-edge-litert", Interpreter
+    except ImportError:
+        pass
+    try:
+        from tflite_runtime.interpreter import Interpreter
+        yield "tflite-runtime", Interpreter
+    except ImportError:
+        pass
+    try:
+        import tensorflow as tf   # tf.lite is lazily loaded: "import tensorflow.lite" does not work
+        yield "tensorflow", tf.lite.Interpreter
+    except (ImportError, AttributeError):
+        pass
+
+
+def load_interpreter(model_path, threads=2, default_delegates=True):
+    """default_delegates=False disables XNNPACK: plain built-in kernels (still optimised for int8)."""
+    for name, cls in _interpreter_classes():
+        options = {}
+        if not default_delegates:
+            if name == "tensorflow":
+                import tensorflow as tf
+                resolver = tf.lite.experimental.OpResolverType
+            else:
+                resolver = __import__(cls.__module__, fromlist=["OpResolverType"]).OpResolverType
+            options["experimental_op_resolver_type"] = resolver.BUILTIN_WITHOUT_DEFAULT_DELEGATES
+        return cls(model_path=str(model_path), num_threads=threads, **options)
+    raise ImportError("no TFLite runtime installed: pip install ai-edge-litert (Pi) or tensorflow (PC)")
+
+
+def ready_interpreter(model_path, threads=2):
+    """Interpreter with tensors allocated. XNNPACK (fastest) first; some int8 graphs (e.g. the
+    int8 MEAN ops of MobileNetV3's squeeze-excite blocks) are refused by XNNPACK, then the
+    built-in kernels are used instead. Found with a real exported model in TF/LiteRT 2.20."""
+    try:
+        interpreter = load_interpreter(model_path, threads)
+        interpreter.allocate_tensors()
+        return interpreter, "xnnpack"
+    except RuntimeError as error:
+        log.warning("XNNPACK refused the model (%s); using the built-in kernels", str(error).splitlines()[0])
+        interpreter = load_interpreter(model_path, threads, default_delegates=False)
+        interpreter.allocate_tensors()
+        return interpreter, "builtin"
 
 
 def center_square(image):
@@ -59,8 +98,11 @@ class LeafClassifier:
             metadata = json.load(f)
         self.labels = list(metadata["labels"])
         self.version = metadata.get("version", Path(model_path).stem)
-        self.interpreter = interpreter or load_interpreter(model_path, threads)
-        self.interpreter.allocate_tensors()
+        if interpreter is None:
+            self.interpreter, self.backend = ready_interpreter(model_path, threads)
+        else:
+            self.interpreter, self.backend = interpreter, "injected"
+            self.interpreter.allocate_tensors()
         self.input = self.interpreter.get_input_details()[0]
         self.output = self.interpreter.get_output_details()[0]
         _, self.height, self.width, _ = self.input["shape"]

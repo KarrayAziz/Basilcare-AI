@@ -31,7 +31,7 @@ def main():
     latencies = sorted(classifier.classify(image).latency_ms for _ in range(args.runs))
     p95 = latencies[min(len(latencies) - 1, int(0.95 * len(latencies)))]
     print(f"model {classifier.version}, input {classifier.width}x{classifier.height} "
-          f"{classifier.input['dtype'].__name__}, {args.threads} thread(s)")
+          f"{classifier.input['dtype'].__name__}, {args.threads} thread(s), kernels: {classifier.backend}")
     print(f"latency over {args.runs} runs: median {statistics.median(latencies):.1f} ms, p95 {p95:.1f} ms")
 
 

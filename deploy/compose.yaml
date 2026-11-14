@@ -1,4 +1,6 @@
 # Development stack: docker compose -f deploy/compose.yaml up -d
+# Values like ${INGEST_KEY:-dev-ingest-key} come from deploy/.env (copy .env.example);
+# the text after ":-" is a development default only. Production values are never committed.
 name: basilcare
 
 services:
@@ -19,6 +21,8 @@ services:
       TZ: Africa/Tunis                      # local time in the Node-RED log
       MQTT_HOST: mosquitto                  # used by the flow's broker node: ${MQTT_HOST}
       MQTT_PORT: "1883"
+      API_URL: http://wildfly:8080/api      # where checked messages are sent (/api/ingest/...)
+      INGEST_KEY: ${INGEST_KEY:-dev-ingest-key}                     # must equal the API's
       NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-}   # empty in development
       NODE_RED_ADMIN_HASH: ${NODE_RED_ADMIN_HASH:-}                 # empty = editor without login
     volumes:
@@ -29,12 +33,15 @@ services:
     image: quay.io/wildfly/wildfly:latest   # "latest" is the JDK 25 image since WildFly 41
     ports: ["8080:8080"]
     environment:
+      TZ: Africa/Tunis                       # offsets in API timestamps (+01:00)
       JNOSQL_MONGODB_HOST: mongodb:27017     # overrides jnosql.mongodb.host
+      MQTT_BROKER_URL: tcp://mosquitto:1883  # the API publishes pump commands
+      INGEST_KEY: ${INGEST_KEY:-dev-ingest-key}   # Node-RED -> API service key
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-now}
     volumes:
       - ../iam/target/iam.war:/opt/jboss/wildfly/standalone/deployments/iam.war:ro
       - ../api/target/api.war:/opt/jboss/wildfly/standalone/deployments/api.war:ro
-    depends_on: [mongodb]
+    depends_on: [mongodb, mosquitto]
 
 volumes:
   mongo-data:

@@ -46,7 +46,9 @@ public class Startup {
     }
 
     private void createIndexes() {
-        String uri = mongoHost.startsWith("mongodb") ? mongoHost : "mongodb://" + mongoHost;
+        // jnosql.mongodb.host is "host:port" (the compose host is itself called "mongodb")
+        boolean isUri = mongoHost.startsWith("mongodb://") || mongoHost.startsWith("mongodb+srv://");
+        String uri = isUri ? mongoHost : "mongodb://" + mongoHost;
         try (MongoClient client = MongoClients.create(uri)) {
             MongoDatabase db = client.getDatabase(database);
             // latest live value, history and stale check

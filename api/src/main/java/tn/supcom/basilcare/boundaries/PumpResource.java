@@ -2,6 +2,7 @@ package tn.supcom.basilcare.boundaries;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.json.Json;
 import jakarta.json.JsonNumber;
 import jakarta.json.JsonObject;
@@ -13,7 +14,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -46,7 +46,7 @@ public class PumpResource {
     @Path("{deviceId}/commands")
     @Consumes(MediaType.APPLICATION_JSON)
     public Response command(@PathParam("deviceId") String deviceId, JsonObject body,
-                            @Context SecurityContext security, @Context ContainerRequestContext request) {
+                            @Context SecurityContext security, @Context HttpServletRequest request) {
         if (body == null) {
             return Problems.of(Response.Status.BAD_REQUEST, "invalid_request", "A JSON body is required.");
         }
@@ -103,10 +103,11 @@ public class PumpResource {
         }
     }
 
-    private static PumpService.Requester requester(SecurityContext security, ContainerRequestContext request) {
+    private static PumpService.Requester requester(SecurityContext security, HttpServletRequest request) {
         String role = security.isUserInRole("Admin") ? "Admin" : "Farmer";
         String clientId = null;
-        if (request.getProperty(SecurityFilter.CLAIMS) instanceof JsonObject claims
+        // RESTEasy stores ContainerRequestContext properties as servlet request attributes
+        if (request.getAttribute(SecurityFilter.CLAIMS) instanceof JsonObject claims
                 && claims.get("aud") != null && claims.get("aud").getValueType() == JsonValue.ValueType.STRING) {
             clientId = claims.getString("aud");
         }

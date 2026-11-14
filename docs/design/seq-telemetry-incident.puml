@@ -1,0 +1,58 @@
+@startuml seq-telemetry-incident
+title Sequence 1 - a reading travels to the dashboard and raises an incident (FR-01..FR-04)
+autonumber
+participant "Sensor\ndriver" as S
+participant "Gateway\n(edge)" as G
+database "SQLite\noutbox" as O
+participant "Mosquitto" as B
+participant "Node-RED\ningestion" as N
+participant "TelemetryService\n(API)" as T
+participant "IncidentService" as I
+database "MongoDB" as M
+participant "Notifier\n(LogNotifier)" as L
+actor "Farmer PWA" as F
+
+G -> S : read()
+S --> G : 7.12 pH
+G -> O : add(telemetry/ph, {value, measured_at, seq, buffered:false})
+G -> B : PUBLISH QoS 1
+B --> G : PUBACK
+G -> O : done(row)  // deleted only now
+B -> N : deliver
+N -> N : check against MQTT contract\n(unit, plausible range, offset)
+N -> T : POST /api/ingest/telemetry\nX-Ingest-Key
+T -> T : re-validate (defence in depth)
+T -> M : find(id = device:sensor:epoch)
+alt duplicate (QoS 1 redelivery)
+  T --> N : 200 duplicate
+else new reading
+  T -> M : insert(Reading)
+  opt newest live reading (not buffered, not older)
+    T -> I : onLiveReading(reading)
+    I -> M : threshold(ph)
+    alt outside the alert range
+      I -> M : findUnresolved(key)
+      alt no unresolved incident
+        I -> M : insert(Incident open, active)
+        I -> L : incidentRaised()
+      else already open
+        I -> M : update(lastValue, lastSeenAt)
+      end
+    else back inside
+      I -> M : clear(key)  // active = false, stays open
+    end
+  end
+  T --> N : 201 stored
+end
+note over N
+  API unreachable or 5xx:
+  retried every 5 s for 2 min
+end note
+
+loop every 5 s
+  F -> T : GET /api/telemetry/latest\nGET /api/incidents (Bearer JWT)
+  T --> F : live values (never buffered), incidents
+end
+F -> F : new incident -> browser notification
+F -> I : POST /incidents/{id}/acknowledge, then /resolve {note}
+@enduml

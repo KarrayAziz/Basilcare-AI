@@ -1,0 +1,38 @@
+name: Node-RED and PWA CI
+
+on:
+  pull_request:
+    paths:
+      - "nodered/**"
+      - "pwa-farmer/**"
+      - "pwa-admin/**"
+      - ".github/workflows/js-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "nodered/**"
+      - "pwa-farmer/**"
+      - "pwa-admin/**"
+      - ".github/workflows/js-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # node --test with glob patterns needs Node.js 21+; nothing is installed from npm.
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Node-RED flow tests
+        run: node --test "nodered/test/*.test.js"
+
+      - name: PWA tests
+        run: node --test "pwa-farmer/test/*.test.mjs" "pwa-admin/test/*.test.js"

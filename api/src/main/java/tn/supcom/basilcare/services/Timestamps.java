@@ -1,8 +1,8 @@
 package tn.supcom.basilcare.services;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -39,8 +39,17 @@ public final class Timestamps {
         return FORMAT.format(moment.truncatedTo(ChronoUnit.SECONDS));
     }
 
-    /** Formats an instant in the server's time zone (Africa/Tunis in the compose file). */
-    public static String format(Instant instant) {
-        return format(instant.atZone(ZoneId.systemDefault()).toOffsetDateTime());
+    /**
+     * Formats an instant in the clock's time zone (the server's zone in production: Africa/Tunis
+     * in the compose file). Using the clock's zone, not the JVM default, keeps the output
+     * deterministic in tests and on CI runners that run in UTC.
+     */
+    public static String format(Instant instant, Clock clock) {
+        return format(instant.atZone(clock.getZone()).toOffsetDateTime());
+    }
+
+    /** Now, in the clock's time zone. */
+    public static String now(Clock clock) {
+        return format(clock.instant(), clock);
     }
 }

@@ -64,7 +64,7 @@ public class TelemetryService {
         reading.setCalibrated(p.getBoolean("calibrated"));
         reading.setSeq(p.getJsonNumber("seq").longValue());
         reading.setBuffered(p.getBoolean("buffered"));
-        reading.setReceivedAt(Timestamps.format(clock.instant()));
+        reading.setReceivedAt(Timestamps.now(clock));
         reading.setId(Reading.idOf(reading.getDeviceId(), reading.getSensor(), reading.getMeasuredAtEpoch()));
 
         // Compare with the live value BEFORE storing: only a newer, live reading may move it.
@@ -104,7 +104,7 @@ public class TelemetryService {
         state.setTelemetryIntervalS(p.getInt("telemetry_interval_s"));
         state.setSoftware(p.containsKey("software") && !p.isNull("software") ? p.getString("software") : null);
         state.setReportedAt(reportedAt);
-        state.setReceivedAt(Timestamps.format(now));
+        state.setReceivedAt(Timestamps.format(now, clock));
         state.setReceivedAtEpoch(now.toEpochMilli());
         store.saveDeviceState(state);
         incidents.onDeviceStatus(state);
@@ -133,7 +133,7 @@ public class TelemetryService {
         }
         result.setQualityIssues(issues);
         result.setReviewRequired(p.getBoolean("review_required"));
-        result.setReceivedAt(Timestamps.format(clock.instant()));
+        result.setReceivedAt(Timestamps.now(clock));
         if (!store.insertScreening(result)) {
             return IngestResult.duplicate();
         }

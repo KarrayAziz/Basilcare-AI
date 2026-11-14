@@ -118,9 +118,9 @@ public class PumpService {
         command.setRequestedBy(requester.username());
         command.setRequesterRole(requester.role());
         command.setClientId(requester.clientId());
-        command.setRequestedAt(Timestamps.format(Instant.ofEpochMilli(now)));
+        command.setRequestedAt(Timestamps.format(Instant.ofEpochMilli(now), clock));
         command.setRequestedAtEpoch(now);
-        command.setExpiresAt(Timestamps.format(Instant.ofEpochMilli(now + 1000L * commandTtlS)));
+        command.setExpiresAt(Timestamps.format(Instant.ofEpochMilli(now + 1000L * commandTtlS), clock));
         command.setDecision(decision.accepted() ? PumpCommand.ACCEPTED : PumpCommand.REJECTED);
         command.setDecisionReason(decision.reason());
         command.setPublished(decision.accepted());
@@ -165,7 +165,7 @@ public class PumpService {
         status.setResult(text(p, "result"));
         status.setReason(text(p, "reason"));
         status.setReportedAt(reportedAt);
-        status.setReceivedAt(Timestamps.format(clock.instant()));
+        status.setReceivedAt(Timestamps.now(clock));
         store.savePumpStatus(status);
 
         if (commandId != null) {

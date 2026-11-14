@@ -34,7 +34,7 @@ public class ThresholdService {
         int added = 0;
         for (Threshold threshold : DefaultThresholds.all()) {
             if (store.threshold(threshold.getSensor()).isEmpty()) {
-                threshold.setUpdatedAt(Timestamps.format(clock.instant()));
+                threshold.setUpdatedAt(Timestamps.now(clock));
                 store.saveThreshold(threshold);
                 added++;
             }
@@ -82,7 +82,7 @@ public class ThresholdService {
         saved.setVerified(request.isVerified());
         saved.setSource(source);
         saved.setUpdatedBy(user);
-        saved.setUpdatedAt(Timestamps.format(clock.instant()));
+        saved.setUpdatedAt(Timestamps.now(clock));
         store.saveThreshold(saved);
         return saved;
     }

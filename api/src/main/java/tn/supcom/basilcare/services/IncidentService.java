@@ -278,7 +278,7 @@ public class IncidentService {
     }
 
     private String now() {
-        return Timestamps.format(Instant.ofEpochMilli(clock.millis()));
+        return Timestamps.now(clock);
     }
 
     private static String format(double value) {

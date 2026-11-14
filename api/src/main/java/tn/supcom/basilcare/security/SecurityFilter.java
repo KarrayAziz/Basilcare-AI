@@ -30,6 +30,9 @@ import java.util.stream.Collectors;
 @Priority(Priorities.AUTHENTICATION)
 public class SecurityFilter implements ContainerRequestFilter {
 
+    /** Request property holding the verified JWT claims (a JsonObject). */
+    public static final String CLAIMS = "basilcare.jwt.claims";
+
     @Inject
     JwtVerifier verifier;
 
@@ -61,6 +64,9 @@ public class SecurityFilter implements ContainerRequestFilter {
             abort(request, Response.Status.FORBIDDEN);
             return;
         }
+
+        // the raw claims, for audit records that need more than the user name (e.g. the client app)
+        request.setProperty(CLAIMS, claims.get());
 
         // make the caller available to resources through @Context SecurityContext
         boolean secure = request.getSecurityContext().isSecure();

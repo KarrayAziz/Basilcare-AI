@@ -1,0 +1,4 @@
+# Local configuration (device id, broker address) and runtime data stay on the Pi
+config.toml
+data/
+dataset/

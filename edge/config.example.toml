@@ -1,0 +1,73 @@
+# BasilCare edge gateway configuration.
+# Copy to config.toml (git-ignored) and adapt. Relative paths are relative to this file.
+
+[device]
+id = "basil-pi-01"            # contract section 1: a-z, 0-9, '-'; must be registered in the admin PWA
+interval_s = 5                # seconds between two readings of the same sensor
+
+[mqtt]
+host = "192.168.1.10"         # the machine running Mosquitto (your laptop in development)
+port = 1883
+# username = "basil-pi-01"    # production: one login per device (contract section 9)
+# password = ""               # better: BASILCARE_MQTT_PASSWORD environment variable
+# tls = true                  # production: port 8883
+# ca_file = "/etc/basilcare/ca.crt"
+
+[pump]
+max_duration_s = 900          # device-side limits, enforced even without network (contract 5.2)
+min_water_level = 20.0
+relay = "fake"                # "gpio" once the relay module is wired
+gpio_pin = 17
+active_high = true
+
+[storage]
+outbox_path = "data/outbox.sqlite3"   # readings waiting for the broker
+outbox_max_rows = 100000              # about 3 days of readings at 5 s with 6 sensors
+
+[camera]
+enabled = true
+source = "picamera2"          # "folder" replays the pictures of folder_path (no camera needed)
+# folder_path = "test-images"
+width = 1640
+height = 1232
+every_s = 600                 # one screening every 10 minutes
+images_dir = "data/images"
+keep_images = 500
+# Fixed exposure and white balance give consistent pictures (tune under the grow light):
+# controls = { AeEnable = false, ExposureTime = 20000, AnalogueGain = 1.5, AwbEnable = false, ColourGains = [1.8, 1.6] }
+
+[model]
+path = ""                     # e.g. "../model/export/leafscreen-int8.tflite"; empty = every result needs review
+review_threshold = 0.7        # below this confidence the PWA shows "review required"
+threads = 4                   # the Pi 4 has 4 cores
+
+# ---- sensors -------------------------------------------------------------------------
+# Until the probes arrive, every sensor is simulated (published with calibrated = false).
+# When a probe is wired, replace its section, e.g. for pH:
+#   [sensors.ph]
+#   driver = "ads1115_ph"
+#   channel = 0
+#   v_ph7 = 2.51              # volts measured in the pH 7 buffer
+#   v_ph4 = 3.04              # volts measured in the pH 4 buffer
+# Other drivers: bme280 (air_temperature, air_humidity), ds18b20 (water_temperature),
+# ads1115_ec (k = mS/cm per volt), ads1115_level (v_empty, v_full). See sensors/hardware.py.
+
+[sensors.air_temperature]
+driver = "simulated"
+
+[sensors.air_humidity]
+driver = "simulated"
+
+[sensors.ph]
+driver = "simulated"
+# drift_per_read = 0.02       # makes the pH rise, to demonstrate an incident
+
+[sensors.ec]
+driver = "simulated"
+
+[sensors.water_temperature]
+driver = "simulated"
+
+[sensors.water_level]
+driver = "simulated"
+# drift_per_read = -0.5       # empties the reservoir, to demonstrate the pump lock-out

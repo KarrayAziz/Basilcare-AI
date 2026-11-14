@@ -1,0 +1,25 @@
+# Runs the gateway at boot and restarts it if it crashes.
+# Install (on the Pi, repository cloned in /home/pi/Basilcare-AI):
+#   sudo cp edge/systemd/basilcare-edge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now basilcare-edge
+#   journalctl -u basilcare-edge -f          # follow the log
+[Unit]
+Description=BasilCare edge gateway
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+User=pi
+Group=gpio
+SupplementaryGroups=i2c video
+WorkingDirectory=/home/pi/Basilcare-AI/edge
+ExecStart=/home/pi/Basilcare-AI/edge/.venv/bin/python -m basilcare_edge --config /home/pi/Basilcare-AI/edge/config.toml
+# SIGTERM -> the gateway switches the pump off and publishes "offline" before exiting
+KillSignal=SIGTERM
+TimeoutStopSec=15
+Restart=always
+RestartSec=5
+# EnvironmentFile=/etc/basilcare/edge.env   # BASILCARE_MQTT_PASSWORD=...
+
+[Install]
+WantedBy=multi-user.target

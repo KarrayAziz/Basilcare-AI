@@ -40,6 +40,7 @@ class Gateway:
         self.lock = threading.Lock()
         self.connected = threading.Event()
         self.stop_event = threading.Event()
+        self.shut_down = False
         self.screening_thread = None
         self.client = client or self._make_client()
 
@@ -184,36 +185,56 @@ class Gateway:
     # ---- life cycle -------------------------------------------------------------------
 
     def run(self):
+        """Main loop. Whatever ends it (stop(), an exception such as a full SD card), the
+        pump is switched off and the broker is told we are gone (review finding #2)."""
         self.connect()
         interval = self.config.interval_s
         screening_every = self.config.camera.every_s
         next_measure = time.monotonic()
         next_screening = time.monotonic() + 15   # first picture shortly after start
-        while not self.stop_event.is_set():
-            now = time.monotonic()
-            if now >= next_measure:
-                self.measure()
-                next_measure += interval
-                if next_measure < now:            # the Pi was suspended or very slow: do not catch up
-                    next_measure = now + interval
-            if self.screening and now >= next_screening:
-                self.start_screening()
-                next_screening = now + screening_every
-            self.watchdog()
-            self.flush()
-            self.stop_event.wait(0.5)
-        self.shutdown()
+        try:
+            while not self.stop_event.is_set():
+                now = time.monotonic()
+                if now >= next_measure:
+                    self.measure()
+                    next_measure += interval
+                    if next_measure < now:            # the Pi was suspended or very slow: do not catch up
+                        next_measure = now + interval
+                if self.screening and now >= next_screening:
+                    self.start_screening()
+                    next_screening = now + screening_every
+                self.watchdog()
+                self.flush()
+                self.stop_event.wait(0.5)
+        except BaseException:
+            log.exception("gateway loop failed; stopping the pump and going offline")
+            raise
+        finally:
+            self.shutdown()
 
     def stop(self):
         self.stop_event.set()
 
     def shutdown(self):
-        """Clean stop: pump off, say goodbye (the broker does not send the Last Will then)."""
-        self.guard.shutdown()
-        if self.client.is_connected():
-            topic, payload, retain = self._status(False)
-            self.client.publish(topic, json.dumps(payload), qos=1, retain=retain).wait_for_publish(timeout=5)
-            self.client.disconnect()
-        self.client.loop_stop()
-        log.info("stopped; %d message(s) still queued for the next start", self.outbox.pending())
-        self.outbox.close()
+        """Clean stop: pump off FIRST, then say goodbye (the broker does not send the Last Will
+        then). Each step is independent: a failure in one never skips the relay."""
+        if self.shut_down:
+            return
+        self.shut_down = True
+        try:
+            self.guard.shutdown()
+        except Exception:
+            log.exception("could not switch the relay off")
+        try:
+            if self.client.is_connected():
+                topic, payload, retain = self._status(False)
+                self.client.publish(topic, json.dumps(payload), qos=1, retain=retain).wait_for_publish(timeout=5)
+                self.client.disconnect()
+            self.client.loop_stop()
+        except Exception:
+            log.exception("could not say goodbye to the broker")
+        try:
+            log.info("stopped; %d message(s) still queued for the next start", self.outbox.pending())
+            self.outbox.close()
+        except Exception:
+            log.exception("could not close the outbox")

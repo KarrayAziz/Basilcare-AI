@@ -26,7 +26,7 @@ import java.util.logging.Logger;
  * Entry point of device data, called by the Node-RED ingestion flow only (X-Ingest-Key).
  * The bodies are the MQTT payloads of docs/mqtt-contract.md, unchanged.
  *
- * Answers: 201 stored, 200 duplicate (ignored, contract section 7), 422 invalid.
+ * Answers: 201 stored, 200 duplicate or outdated (ignored, contract section 7), 422 invalid.
  */
 @Path("ingest")
 @IngestKeyRequired
@@ -103,6 +103,8 @@ public class IngestResource {
                     .entity(Json.createObjectBuilder().add("stored", true).build()).build();
             case DUPLICATE -> Response.ok(Json.createObjectBuilder()
                     .add("stored", false).add("duplicate", true).build()).build();
+            case OUTDATED -> Response.ok(Json.createObjectBuilder()
+                    .add("stored", false).add("outdated", true).build()).build();
             case INVALID -> Problems.invalid("invalid_message", result.errors());
         };
     }

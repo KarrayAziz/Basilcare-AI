@@ -99,6 +99,41 @@ class PumpServiceTest {
     }
 
     @Test
+    void stopIsStillAllowedAfterTheDeviceWasDisabled() {
+        // review finding #1: disabling a device must never leave its pump running
+        var w = ready();
+        w.pump.request(DEVICE, "on", 600, true, FARMER);
+        w.store.devices.get(DEVICE).setEnabled(false);
+        PumpCommand stop = w.pump.request(DEVICE, "off", null, true, FARMER);
+        assertEquals(PumpCommand.ACCEPTED, stop.getDecision());
+        assertEquals(2, w.publisher.sent.size());
+        assertEquals("device_disabled", w.pump.request(DEVICE, "on", 60, true, FARMER).getDecisionReason(),
+                "starting stays refused");
+    }
+
+    @Test
+    void twoGenuineAnswersInTheSameSecondAreBothRecorded() {
+        // review finding #5: timestamps have second precision; the command id tells answers apart
+        var w = ready();
+        PumpCommand start = w.pump.request(DEVICE, "on", 60, true, FARMER);
+        PumpCommand stop = w.pump.request(DEVICE, "off", null, true, FARMER);
+        String sameSecond = w.now();
+        w.pump.ingestPumpState(pumpState(start.getCommandId(), "off", "rejected", "low_water_level", sameSecond));
+        var second = w.pump.ingestPumpState(pumpState(stop.getCommandId(), "off", "executed", null, sameSecond));
+
+        assertEquals(IngestResult.Outcome.STORED, second.outcome());
+        assertEquals("executed", w.store.commands.get(stop.getCommandId()).getDeviceResult());
+        var replay = w.pump.ingestPumpState(pumpState(stop.getCommandId(), "off", "executed", null, sameSecond));
+        assertEquals(IngestResult.Outcome.DUPLICATE, replay.outcome(), "an identical redelivery is still ignored");
+    }
+
+    private static JsonObject pumpState(String commandId, String state, String result, String reason, String at) {
+        var json = Json.createObjectBuilder().add("device_id", DEVICE).add("state", state).addNull("until")
+                .add("command_id", commandId).add("result", result).add("reported_at", at);
+        return (reason == null ? json.addNull("reason") : json.add("reason", reason)).build();
+    }
+
+    @Test
     void brokerFailureIsRecordedAsRejected() {
         var w = ready();
         w.publisher.fail = true;

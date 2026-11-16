@@ -14,6 +14,7 @@ import tn.supcom.basilcare.repositories.TelemetryStore;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -153,9 +154,15 @@ public class PumpService {
         String commandId = text(p, "command_id");
         String reportedAt = p.getString("reported_at");
         Optional<PumpStatus> previous = store.pumpStatus(deviceId);
-        if (previous.isPresent() && reportedAt.equals(previous.get().getReportedAt())
-                && p.getString("state").equals(previous.get().getState())) {
-            return IngestResult.duplicate();   // retained replay
+        // Retained replay or QoS 1 redelivery: identical in EVERY field. Timestamps have second
+        // precision, so two genuine answers (e.g. to an "on" then an "off") can share the same
+        // reported_at and state; only the command they answer tells them apart (review finding #5).
+        if (previous.map(s -> reportedAt.equals(s.getReportedAt())
+                && p.getString("state").equals(s.getState())
+                && Objects.equals(commandId, s.getCommandId())
+                && Objects.equals(text(p, "result"), s.getResult())
+                && Objects.equals(text(p, "reason"), s.getReason())).orElse(false)) {
+            return IngestResult.duplicate();
         }
         PumpStatus status = new PumpStatus();
         status.setDeviceId(deviceId);

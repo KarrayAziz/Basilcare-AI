@@ -182,7 +182,7 @@ The device checks every command again, even though the API already did. The loca
 | 4 | `action` is `"off"` | `executed`: stopping is always allowed |
 | 5 | pump is in `fault` | `rejected` / `pump_fault` |
 | 6 | `duration_s` above the device maximum | `rejected` / `duration_too_long` |
-| 7 | no water-level reading yet | `rejected` / `water_level_unknown` |
+| 7 | no water-level reading yet, or the last one is too old (probe silent) | `rejected` / `water_level_unknown` |
 | 8 | last water level below the device minimum | `rejected` / `low_water_level` |
 | 9 | otherwise | `executed` |
 
@@ -194,6 +194,7 @@ The device also changes the pump state **by itself**, without a command (`comman
 |---|---|
 | `duration_elapsed` | the `duration_s` of the last `"on"` ran out |
 | `low_water_level` | the water level fell below the minimum while the pump was running |
+| `water_level_unknown` | the water-level probe stopped answering while the pump was running (no reading for longer than the device's maximum age, by default 3 × `telemetry_interval_s`); running dry cannot be excluded, so the pump stops |
 | `pump_fault` | the device detected a pump failure; state becomes `fault` until maintenance on the device |
 
 Default device limits: maximum run **900 s**, minimum water level **20 %**. These are placeholders to agree on (§10).

@@ -16,6 +16,7 @@ port = 1883
 [pump]
 max_duration_s = 900          # device-side limits, enforced even without network (contract 5.2)
 min_water_level = 20.0
+# water_level_max_age_s = 15  # a level older than this counts as unknown (default: 3 x interval_s)
 relay = "fake"                # "gpio" once the relay module is wired
 gpio_pin = 17
 active_high = true

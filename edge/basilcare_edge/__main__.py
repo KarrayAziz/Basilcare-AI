@@ -15,7 +15,8 @@ def build(cfg):
     context = {}
     sensors = build_sensors(cfg.sensors, context)
     relay = GpioRelay(cfg.pump.gpio_pin, cfg.pump.active_high) if cfg.pump.relay == "gpio" else FakeRelay()
-    guard = PumpGuard(cfg.device_id, relay, cfg.pump.max_duration_s, cfg.pump.min_water_level)
+    max_age = cfg.pump.water_level_max_age_s or 3 * cfg.interval_s   # same window as the cloud's stale rule
+    guard = PumpGuard(cfg.device_id, relay, cfg.pump.max_duration_s, cfg.pump.min_water_level, max_age)
     outbox = Outbox(cfg.outbox_path, cfg.outbox_max_rows)
     screening = None
     if cfg.camera.enabled:

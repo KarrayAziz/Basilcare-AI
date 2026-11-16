@@ -1,0 +1,32 @@
+@startuml seq-sign-in
+title Sequence 3 - sign-in with OAuth 2.0 authorization code + PKCE, then a protected call
+autonumber
+actor "User" as U
+participant "PWA\n(browser)" as F
+participant "IAM\n/iam/authorize, /login" as A
+participant "IAM\n/iam/oauth/token" as T
+participant "IAM\n/iam/jwk" as K
+participant "API\nSecurityFilter" as S
+participant "API resource" as R
+
+U -> F : Sign in
+F -> F : verifier = random(32 B)\nchallenge = BASE64URL(SHA-256(verifier))\nstate = random
+F -> A : GET /authorize?client_id&redirect_uri\n&code_challenge&state
+A --> U : login page
+U -> A : username + password
+A -> A : Argon2id check, tenant + role allowed\n(a Farmer cannot use the admin PWA)
+A --> F : 303 redirect_uri?code&state
+F -> F : state matches?
+F -> T : POST code + code_verifier
+T -> T : SHA-256(verifier) == challenge?\ncode single-use, short-lived
+T --> F : access_token (JWT, Ed25519, groups=[Farmer])
+F -> S : GET /api/telemetry/latest\nAuthorization: Bearer JWT
+S -> K : public key for kid (cached)
+S -> S : signature, issuer, expiry,\n@RolesAllowed
+alt valid
+  S -> R : call
+  R --> F : 200 data
+else invalid / wrong role
+  S --> F : 401 / 403
+end
+@enduml

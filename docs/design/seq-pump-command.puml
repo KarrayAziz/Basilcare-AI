@@ -1,0 +1,48 @@
+@startuml seq-pump-command
+title Sequence 2 - safe pump control, with a rejection case (scope sections 4.2, 5.3, 8.4)
+autonumber
+actor "Farmer" as U
+participant "Farmer PWA" as F
+participant "PumpResource\n(API)" as R
+participant "PumpService" as P
+participant "PumpSafetyPolicy\n(pure function)" as SP
+database "MongoDB" as M
+participant "Mosquitto" as B
+participant "PumpGuard\n(Raspberry Pi)" as G
+participant "Relay" as Relay
+
+U -> F : Start, 120 s
+F -> U : confirm("Start the pump for 120 s?")
+U --> F : OK
+F -> R : POST /api/pump/basil-pi-01/commands\n{action:on, duration_s:120, confirm:true}
+R -> R : SecurityFilter: valid JWT, role Farmer/Admin
+R -> P : request(...)
+P -> M : device, device state, pump state,\nlatest live water level
+P -> SP : evaluate(facts, limits)
+alt rejected (e.g. low water, offline, too long)
+  SP --> P : reject(low_water_level)
+  P -> M : insert(PumpCommand rejected, reason)
+  P --> R : command
+  R --> F : 409 {decision: rejected, decisionReason}
+  F -> U : "Refused: refill the reservoir first"
+else accepted
+  SP --> P : accept
+  P -> M : insert(PumpCommand accepted)  // audit BEFORE sending
+  P -> B : PUBLISH pump/cmd QoS 1, NOT retained\n{command_id, duration_s, expires_at = now+60 s}
+  P --> R : command
+  R --> F : 202 accepted
+  B -> G : deliver
+  G -> G : rules of contract 5.2\n(duplicate, device_id, expired, fault,\nduration max, water level known and >= min)
+  alt device accepts
+    G -> Relay : on()
+    G -> B : pump/state {state:on, until, result:executed} (retained)
+  else device refuses
+    G -> B : pump/state {result:rejected, reason}
+  end
+  B -> R : (via Node-RED) POST /api/ingest/pump-state
+  R -> M : PumpCommand.deviceResult = executed
+  ... 120 s later, no network needed ...
+  G -> Relay : off()  // watchdog: duration elapsed
+  G -> B : pump/state {state:off, reason:duration_elapsed}
+end
+@enduml

@@ -39,10 +39,23 @@
             <artifactId>jnosql-mongodb</artifactId>
             <version>1.1.20</version>
         </dependency>
+        <!-- MQTT client: the API publishes pump commands (contract section 5) -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>1.2.5</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>5.11.4</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- JSON-P implementation for unit tests (WildFly provides its own at runtime) -->
+        <dependency>
+            <groupId>org.eclipse.parsson</groupId>
+            <artifactId>parsson</artifactId>
+            <version>1.1.7</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

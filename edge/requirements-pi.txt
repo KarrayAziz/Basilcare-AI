@@ -1,0 +1,9 @@
+# Raspberry Pi only, on top of requirements.txt.
+# Picamera2 comes from Raspberry Pi OS: sudo apt install -y python3-picamera2
+# (create the venv with --system-site-packages so it is visible).
+-r requirements.txt
+ai-edge-litert>=1.2             # TFLite runtime for the leaf-screening model
+gpiozero>=2.0                   # pump relay
+smbus2>=0.5                     # I2C bus (BME280)
+RPi.bme280>=0.2.4               # air temperature and humidity
+adafruit-circuitpython-ads1x15>=2.2,<3   # ADC for the analog pH, EC and level boards

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Update and (re)start the stack from the repository (scope §6.1: "subsequent git pull").
+#
+#   bash deploy/deploy.sh            # pull, build, start, check health
+#   bash deploy/deploy.sh --no-pull  # build and restart the current checkout
+#   bash deploy/deploy.sh --smoke    # also run deploy/smoke_test.py (needs a running simulator)
+#
+# The WARs are built with Maven inside a container (no Java on the server), with the same
+# JDK 25 as CI. Runs from any directory.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+PULL=1
+SMOKE=0
+for arg in "$@"; do
+    case "$arg" in
+        --no-pull) PULL=0 ;;
+        --smoke) SMOKE=1 ;;
+        *) echo "unknown option $arg"; exit 2 ;;
+    esac
+done
+
+if [ ! -f deploy/.env ]; then
+    echo "deploy/.env is missing: cp deploy/.env.example deploy/.env and set the secrets (or run setup.sh)"
+    exit 1
+fi
+
+if [ "$PULL" = 1 ]; then
+    echo "== git pull"
+    git pull --ff-only
+fi
+echo "== deploying $(git rev-parse --short HEAD): $(git log -1 --pretty=%s)"
+
+echo "== build iam.war and api.war (tests included)"
+if command -v mvn >/dev/null 2>&1 && mvn -v 2>/dev/null | grep -q "Java version: 25"; then
+    # Two separate statements on purpose: under "set -e" a failure inside an "a && b" list does
+    # NOT stop the script, so a broken IAM build used to deploy the old iam.war (review finding #7).
+    (cd iam && mvn -B -q verify) || { echo "IAM build failed: nothing deployed"; exit 1; }
+    (cd api && mvn -B -q verify) || { echo "API build failed: nothing deployed"; exit 1; }
+else
+    docker run --rm -v "$PWD":/src -v basilcare-m2:/root/.m2 -w /src maven:3.9-eclipse-temurin-25 \
+        bash -c "cd iam && mvn -B -q verify && cd ../api && mvn -B -q verify" \
+        || { echo "build failed: nothing deployed"; exit 1; }
+fi
+
+echo "== start the stack"
+docker compose -f deploy/compose.yaml up -d --remove-orphans
+docker compose -f deploy/compose.yaml restart wildfly   # pick up the new WARs
+
+echo "== wait for the API"
+for _ in $(seq 1 60); do
+    if curl -fsS http://localhost:8080/api/health >/dev/null 2>&1; then
+        curl -fsS http://localhost:8080/api/health; echo
+        break
+    fi
+    sleep 3
+done
+curl -fsS http://localhost:8080/api/health >/dev/null || { echo "API not healthy"; docker compose -f deploy/compose.yaml logs --tail 80 wildfly; exit 1; }
+
+if [ "$SMOKE" = 1 ]; then
+    set -a; . deploy/.env; set +a
+    python3 deploy/smoke_test.py --password "$ADMIN_PASSWORD"
+fi
+echo "== deployed"

@@ -4,14 +4,14 @@
         "type": "tab",
         "label": "BasilCare ingestion",
         "disabled": false,
-        "info": "Receives every message of every BasilCare device and checks it against\n**docs/mqtt-contract.md** (version 1).\n\n1. **All BasilCare devices**: MQTT subscription to `basilcare/v1/+/#`, QoS 1, persistent\n   session, so the broker keeps the messages that arrive while Node-RED restarts.\n2. **Check against MQTT contract**: topic, JSON, device_id, units, plausible ranges,\n   timestamps with offset. Valid messages leave on output 1 with `msg.kind` and the parsed\n   payload; invalid ones on output 2 with `msg.errors`.\n3. **Route by message type**: one output per `msg.kind`.\n\nNext steps: send telemetry, status, pump state and screening results to the Jakarta EE API\n(storage, incidents); turn invalid messages into device incidents."
+        "info": "Receives every message of every BasilCare device, checks it against\n**docs/mqtt-contract.md** (version 1) and hands it to the Jakarta EE API.\n\n1. **All BasilCare devices**: MQTT subscription to `basilcare/v1/+/#`, QoS 1, persistent\n   session, so the broker keeps the messages that arrive while Node-RED restarts.\n2. **Check against MQTT contract**: topic, JSON, device_id, units, plausible ranges,\n   timestamps with offset. Valid messages leave on output 1 with `msg.kind` and the parsed\n   payload; invalid ones on output 2 with `msg.errors`.\n3. **Route by message type**: one output per `msg.kind` (debug nodes for watching).\n4. **To API request** → **Jakarta EE API**: `POST $API_URL/ingest/...` with the\n   `X-Ingest-Key: $INGEST_KEY` header. Telemetry, status, pump state and screening are\n   stored; invalid messages become device incidents. Pump commands are not sent back:\n   the API published and audited them itself.\n5. **Check API answer**: while the API is unreachable or answers 5xx, the message waits\n   5 s and is sent again (up to 2 minutes), so redeploying the API loses no reading.\n   Messages refused for good (422, 401) or still failing go to *API errors* and the log."
     },
     {
         "id": "b5c1a0e0f1a20010",
         "type": "comment",
         "z": "b5c1a0e0f1a20001",
-        "name": "Devices → Mosquitto → check → route  (next: Jakarta EE API)",
-        "info": "Receives every message of every BasilCare device and checks it against\n**docs/mqtt-contract.md** (version 1).\n\n1. **All BasilCare devices**: MQTT subscription to `basilcare/v1/+/#`, QoS 1, persistent\n   session, so the broker keeps the messages that arrive while Node-RED restarts.\n2. **Check against MQTT contract**: topic, JSON, device_id, units, plausible ranges,\n   timestamps with offset. Valid messages leave on output 1 with `msg.kind` and the parsed\n   payload; invalid ones on output 2 with `msg.errors`.\n3. **Route by message type**: one output per `msg.kind`.\n\nNext steps: send telemetry, status, pump state and screening results to the Jakarta EE API\n(storage, incidents); turn invalid messages into device incidents.",
+        "name": "Devices → Mosquitto → check → route → Jakarta EE API",
+        "info": "Receives every message of every BasilCare device, checks it against\n**docs/mqtt-contract.md** (version 1) and hands it to the Jakarta EE API.\n\n1. **All BasilCare devices**: MQTT subscription to `basilcare/v1/+/#`, QoS 1, persistent\n   session, so the broker keeps the messages that arrive while Node-RED restarts.\n2. **Check against MQTT contract**: topic, JSON, device_id, units, plausible ranges,\n   timestamps with offset. Valid messages leave on output 1 with `msg.kind` and the parsed\n   payload; invalid ones on output 2 with `msg.errors`.\n3. **Route by message type**: one output per `msg.kind` (debug nodes for watching).\n4. **To API request** → **Jakarta EE API**: `POST $API_URL/ingest/...` with the\n   `X-Ingest-Key: $INGEST_KEY` header. Telemetry, status, pump state and screening are\n   stored; invalid messages become device incidents. Pump commands are not sent back:\n   the API published and audited them itself.\n5. **Check API answer**: while the API is unreachable or answers 5xx, the message waits\n   5 s and is sent again (up to 2 minutes), so redeploying the API loses no reading.\n   Messages refused for good (422, 401) or still failing go to *API errors* and the log.",
         "x": 300,
         "y": 60,
         "wires": []
@@ -60,7 +60,8 @@
                 "b5c1a0e0f1a20013"
             ],
             [
-                "b5c1a0e0f1a20020"
+                "b5c1a0e0f1a20020",
+                "b5c1a0e0f1a20030"
             ]
         ]
     },
@@ -112,19 +113,23 @@
         "y": 160,
         "wires": [
             [
-                "b5c1a0e0f1a20014"
+                "b5c1a0e0f1a20014",
+                "b5c1a0e0f1a20030"
             ],
             [
-                "b5c1a0e0f1a20015"
+                "b5c1a0e0f1a20015",
+                "b5c1a0e0f1a20030"
             ],
             [
-                "b5c1a0e0f1a20016"
+                "b5c1a0e0f1a20016",
+                "b5c1a0e0f1a20030"
             ],
             [
                 "b5c1a0e0f1a20017"
             ],
             [
-                "b5c1a0e0f1a20018"
+                "b5c1a0e0f1a20018",
+                "b5c1a0e0f1a20030"
             ]
         ]
     },
@@ -229,6 +234,119 @@
         "x": 690,
         "y": 300,
         "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20030",
+        "type": "function",
+        "z": "b5c1a0e0f1a20001",
+        "name": "To API request",
+        "func": "// Turns a checked message into a call to the Jakarta EE API (POST /api/ingest/...).\n//\n// Valid messages:   the MQTT payload is sent unchanged to /ingest/{telemetry|status|pump-state|screening}.\n// Invalid messages: {topic, errors} is sent to /ingest/invalid, which raises a device incident\n//                   (contract section 7); the bad payload itself is never stored.\n// Pump commands are published by the API itself and already audited there: not sent back.\n//\n// API_URL and INGEST_KEY come from environment variables (deploy/compose.yaml), never from the flow.\n\nconst PATHS = { telemetry: \"telemetry\", status: \"status\", pump_state: \"pump-state\", screening: \"screening\" };\nconst base = (env.get(\"API_URL\") || \"http://wildfly:8080/api\").replace(/\\/+$/, \"\");\nconst key = env.get(\"INGEST_KEY\") || \"\";\n\nlet path;\nlet body;\nif (Array.isArray(msg.errors)) {\n    path = \"invalid\";\n    body = { topic: msg.topic, errors: msg.errors };\n} else {\n    path = PATHS[msg.kind];\n    body = msg.payload;\n}\nif (!path) {\n    return null;\n}\nif (!key) {\n    node.status({ fill: \"red\", shape: \"ring\", text: \"INGEST_KEY not set\" });\n    node.warn(\"INGEST_KEY is not set: nothing is sent to the API\");\n    return null;\n}\nmsg.url = base + \"/ingest/\" + path;\nmsg.method = \"POST\";\nmsg.headers = { \"Content-Type\": \"application/json\", \"X-Ingest-Key\": key };\nmsg.payload = body;\n// The whole request is kept: the HTTP node replaces msg.payload and msg.headers with the\n// RESPONSE, so a retry must restore url, method, headers and body (not only the body).\nmsg.ingest = { path: path, topic: msg.topic, url: msg.url, method: msg.method, headers: msg.headers,\n               body: body, attempts: 0 };\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 960,
+        "y": 340,
+        "wires": [
+            [
+                "b5c1a0e0f1a20031"
+            ]
+        ]
+    },
+    {
+        "id": "b5c1a0e0f1a20031",
+        "type": "http request",
+        "z": "b5c1a0e0f1a20001",
+        "name": "Jakarta EE API",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": true,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1150,
+        "y": 340,
+        "wires": [
+            [
+                "b5c1a0e0f1a20032"
+            ]
+        ]
+    },
+    {
+        "id": "b5c1a0e0f1a20032",
+        "type": "function",
+        "z": "b5c1a0e0f1a20001",
+        "name": "Check API answer",
+        "func": "// Checks the API's answer.\n// 201 stored, 200 duplicate (QoS 1 redelivery or retained replay), 202 incident raised: all fine.\n//\n// Output 1, retry:  the API is unreachable (no HTTP status, e.g. ECONNREFUSED while WildFly\n//                   restarts) or answered 5xx. The message waits 5 s and is sent again, up to\n//                   MAX_ATTEMPTS times (2 minutes), so a redeploy of the API loses no reading.\n//                   Duplicates are harmless: the API ignores a reading it already stored.\n// Output 2, failed: refused for good (422 contract, 401 wrong INGEST_KEY) or still failing\n//                   after the last attempt. Logged by \"API errors\".\n// Successes are only counted in the node status.\n\nconst MAX_ATTEMPTS = 24;\nconst code = msg.statusCode;\nconst ok = typeof code === \"number\" && code >= 200 && code < 300;\nconst retryable = typeof code !== \"number\" || code >= 500;\nconst attempts = ((msg.ingest && msg.ingest.attempts) || 0) + 1;\n\nlet outcome = \"ok\";\nif (!ok) {\n    outcome = retryable && attempts < MAX_ATTEMPTS ? \"retry\" : \"failed\";\n}\ncontext.set(outcome, (context.get(outcome) || 0) + 1);\nconst failed = context.get(\"failed\") || 0;\nconst retrying = context.get(\"retry\") || 0;\nnode.status({\n    fill: failed ? \"red\" : (outcome === \"retry\" ? \"yellow\" : \"green\"),\n    shape: \"dot\",\n    text: (context.get(\"ok\") || 0) + \" ok, \" + retrying + \" retries, \" + failed + \" failed\",\n});\n\nif (outcome === \"ok\") {\n    return null;\n}\nif (outcome === \"retry\") {\n    msg.ingest.attempts = attempts;\n    // Rebuild the request: the HTTP node replaced payload and headers with the response's.\n    // Restoring only the body used to send the retry WITHOUT X-Ingest-Key -> 401 -> reading lost.\n    msg.url = msg.ingest.url;\n    msg.method = msg.ingest.method;\n    msg.headers = Object.assign({}, msg.ingest.headers);\n    msg.payload = msg.ingest.body;\n    delete msg.statusCode;\n    delete msg.responseUrl;\n    return [msg, null];\n}\nmsg.api_error = { status: code, path: msg.ingest && msg.ingest.path, topic: msg.ingest && msg.ingest.topic,\n                  attempts: attempts };\nreturn [null, msg];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1340,
+        "y": 340,
+        "wires": [
+            [
+                "b5c1a0e0f1a20034"
+            ],
+            [
+                "b5c1a0e0f1a20033"
+            ]
+        ],
+        "outputLabels": [
+            "retry",
+            "failed"
+        ]
+    },
+    {
+        "id": "b5c1a0e0f1a20033",
+        "type": "debug",
+        "z": "b5c1a0e0f1a20001",
+        "name": "API errors",
+        "active": true,
+        "tosidebar": true,
+        "console": true,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 1530,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "b5c1a0e0f1a20034",
+        "type": "delay",
+        "z": "b5c1a0e0f1a20001",
+        "name": "wait 5 s",
+        "pauseType": "delay",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1340,
+        "y": 420,
+        "wires": [
+            [
+                "b5c1a0e0f1a20031"
+            ]
+        ]
     },
     {
         "id": "b5c1a0e0f1a20002",

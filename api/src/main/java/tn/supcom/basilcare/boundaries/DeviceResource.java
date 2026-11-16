@@ -60,6 +60,11 @@ public class DeviceResource {
     public Response create(DeviceRequest request, @Context UriInfo uriInfo) {
         try {
             DeviceValidator.validateForCreate(request);
+            // JNoSQL reports a duplicate _id as a MongoDB write error, not as EntityExistsException,
+            // so check first (found by the end-to-end smoke test: it used to answer 500)
+            if (devices.findById(request.getDeviceId()).isPresent()) {
+                throw new EntityExistsException("device exists");
+            }
             String now = OffsetDateTime.now().toString();
             Device device = new Device();
             device.setDeviceId(request.getDeviceId());

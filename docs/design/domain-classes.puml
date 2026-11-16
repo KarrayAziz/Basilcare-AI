@@ -1,0 +1,115 @@
+@startuml domain-classes
+title BasilCare AI - domain model of the API (api/src/main/java/.../entities)
+hide empty methods
+skinparam classAttributeIconSize 0
+set separator none
+
+package "IoT abstractions (scope section 7.3)" {
+  abstract class Thing <<concept>> {
+    deviceId
+  }
+  interface Sensor <<concept>>
+  interface Actuator <<concept>>
+}
+
+class Device <<registry, admin-managed>> {
+  deviceId : String {id}
+  name : String
+  location : String
+  enabled : boolean
+}
+class DeviceState <<written by the device>> {
+  deviceId : String {id}
+  online : boolean
+  startedAt : timestamp
+  telemetryIntervalS : int
+  software : String
+  reportedAt : timestamp [0..1]
+}
+class Reading {
+  id = deviceId:sensor:epoch {id}
+  sensor : SensorName
+  value : double
+  unit : String
+  measuredAt : timestamp
+  calibrated : boolean
+  seq : long
+  buffered : boolean
+}
+class ScreeningResult {
+  imageId : String {id}
+  modelVersion : String
+  label : String
+  confidence : 0..1
+  qualityIssues : String[*]
+  reviewRequired : boolean
+}
+class Threshold <<admin-managed>> {
+  sensor : SensorName {id}
+  min : double [0..1]
+  max : double [0..1]
+  severity : warning | critical
+  enabled : boolean
+  verified : boolean
+  source : String
+}
+class Incident {
+  id : UUID {id}
+  key = deviceId|type|sensor
+  type : threshold | stale | offline | pump_fault | invalid_message | leaf_anomaly
+  severity : warning | critical
+  status : open | acknowledged | resolved
+  active : boolean
+  occurrences : int
+  acknowledgedBy / At
+  resolvedBy / At
+  resolutionNote
+}
+class PumpStatus <<written by the device>> {
+  deviceId : String {id}
+  state : on | off | fault
+  until : timestamp [0..1]
+  reason : String [0..1]
+}
+class PumpCommand <<audit record>> {
+  commandId : UUID {id}
+  action : on | off
+  durationS : int [0..1]
+  requestedBy, requesterRole, clientId
+  requestedAt, expiresAt
+  decision : accepted | rejected
+  decisionReason
+  deviceResult, deviceReason
+}
+enum SensorName {
+  air_temperature
+  air_humidity
+  ph
+  ec
+  water_temperature
+  water_level
+}
+
+Thing <|.. Device
+Device "1" -- "0..1" DeviceState : same deviceId >
+Device "1" -- "0..*" Reading : measures >
+Device "1" -- "0..*" ScreeningResult
+Device "1" -- "0..1" PumpStatus
+Device "1" -- "0..*" PumpCommand : controlled by >
+Device "1" -- "0..*" Incident
+Reading ..> Sensor : produced by
+PumpCommand ..> Actuator : targets
+Threshold "1" ..> "0..*" Incident : raises (type = threshold)
+Reading --> SensorName
+Threshold --> SensorName
+
+note bottom of Incident
+  At most one unresolved incident per key.
+  A cleared condition keeps the incident open
+  until a person resolves it with a note (FR-04).
+end note
+note bottom of PumpCommand
+  Command pattern: each request is an object,
+  recorded BEFORE it is sent (also when rejected).
+end note
+@enduml

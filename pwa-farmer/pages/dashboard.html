@@ -1,10 +1,46 @@
 <section>
-    <h1>Farm dashboard</h1>
-    <p>Signed in as <strong id="who">...</strong></p>
-    <div class="cards">
-        <div class="card"><h3>pH</h3><p>&mdash;</p></div>
-        <div class="card"><h3>EC</h3><p>&mdash; mS/cm</p></div>
-        <div class="card"><h3>Water level</h3><p>&mdash; %</p></div>
-        <div class="card"><h3>Active alerts</h3><p>&mdash;</p></div>
+    <div class="row">
+        <h1>Farm dashboard</h1>
+        <span>Signed in as <strong id="who">...</strong></span>
     </div>
+    <div class="row">
+        <label>Device <select id="device"></select></label>
+        <button id="notify" type="button">Enable alerts on this device</button>
+    </div>
+    <p id="no-device" class="banner muted" hidden>No device registered yet. An administrator registers it in the admin app.</p>
+    <p id="error" class="banner bad" hidden></p>
+    <p id="state" class="banner muted">Loading…</p>
+
+    <div class="cards summary">
+        <div class="card"><h3>pH</h3><p id="sum-ph" class="big">&mdash;</p></div>
+        <div class="card"><h3>EC</h3><p id="sum-ec" class="big">&mdash;</p></div>
+        <div class="card"><h3>Water level</h3><p id="sum-water_level" class="big">&mdash;</p></div>
+        <div class="card"><h3>Active alerts</h3><p id="sum-alerts" class="big">&mdash;</p></div>
+    </div>
+
+    <h2>Live values</h2>
+    <div id="live" class="cards"></div>
+
+    <h2 id="history-title">History</h2>
+    <div id="history" class="chart"></div>
+    <p class="muted small">Hollow dots: readings sent late after a connection loss (history, never shown as live values).</p>
+
+    <h2>Alerts <span id="incident-count" class="tag">0</span></h2>
+    <ul id="incidents" class="list"></ul>
+
+    <h2>Pump</h2>
+    <div class="card">
+        <p>State: <strong id="pump-state">…</strong> <span id="pump-reason" class="muted"></span></p>
+        <div class="row">
+            <label>Duration (s) <input id="pump-duration" type="number" min="1" value="120"></label>
+            <button id="pump-start" type="button" class="primary">Start…</button>
+            <button id="pump-stop" type="button">Stop…</button>
+        </div>
+        <p id="pump-result"></p>
+        <small id="pump-limits" class="muted"></small>
+    </div>
+
+    <h2>Leaf screening</h2>
+    <p class="muted small">Camera screening on the device. It is not a diagnosis: "Review required" means a person should look at the plant.</p>
+    <ul id="screenings" class="list"></ul>
 </section>

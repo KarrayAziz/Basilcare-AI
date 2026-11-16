@@ -1,0 +1,5 @@
+# Pictures, training runs and exported weights are not committed (size, licences).
+# Publish a released model as a GitHub release asset instead.
+dataset/
+runs/
+export/

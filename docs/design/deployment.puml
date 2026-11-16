@@ -1,0 +1,49 @@
+@startuml deployment
+title BasilCare AI - deployment (scope sections 4 and 6)
+skinparam nodesep 40
+skinparam ranksep 50
+
+node "Raspberry Pi 4 B (8 GB)\nRaspberry Pi OS 64-bit" as Pi {
+  component "basilcare_edge\n(systemd service)" as Edge
+  database "SQLite outbox\n+ images" as Outbox
+  component "TFLite model\n(int8, LiteRT)" as Model
+  Edge --> Outbox
+  Edge --> Model
+}
+node "Sensors, camera,\nrelay + pump" as HW
+HW -- Pi : I2C, 1-Wire, GPIO, CSI
+
+cloud "Cloud IaaS VM (Docker Compose)" as VM {
+  node "Reverse proxy\n(TLS 443)" as Proxy
+  node "Mosquitto 2.0\n(TLS 8883, ACL,\npersistence)" as Broker
+  node "Node-RED 4.0\ningestion flow" as NodeRed
+  node "WildFly 42\n(Jakarta EE 11, Java 25)" as WildFly {
+    artifact "iam.war" as IAM
+    artifact "api.war" as API
+  }
+  database "MongoDB 7" as Mongo
+  node "ai-service\n(RAG, MCP, LLMOps)\nplanned" as AIS
+}
+
+node "Phones / laptops" as Phone {
+  artifact "Farmer PWA" as PF
+  artifact "Admin PWA" as PA
+}
+
+Edge --> Broker : MQTT QoS 1\nbasilcare/v1/{device}/...
+Broker --> NodeRed : MQTT, persistent session
+NodeRed --> API : HTTP POST /api/ingest/*\nX-Ingest-Key
+API --> Broker : MQTT pump/cmd\n(only the API publishes it)
+API --> Mongo
+IAM --> Mongo
+API ..> IAM : JWKS (Ed25519 public keys)
+PF --> Proxy : HTTPS
+PA --> Proxy : HTTPS
+Proxy --> WildFly : /iam, /api
+AIS --> API : REST, user's token\n(MCP tools)
+
+note bottom of VM
+  Code: git clone, then git pull + deploy/deploy.sh.
+  Secrets only in deploy/.env (never committed).
+end note
+@enduml

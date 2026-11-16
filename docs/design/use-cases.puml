@@ -1,0 +1,61 @@
+@startuml use-cases
+title BasilCare AI - use cases (scope section 2)
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Farmer /\nfarm operator" as Farmer
+actor "Administrator" as Admin
+actor "Agronomist /\neducator" as Agro
+actor "Raspberry Pi\ngateway" as Pi <<device>>
+actor "AI assistant\n(MCP client)" as AI <<system>>
+
+Admin --|> Farmer : can do everything\na farmer does
+
+rectangle "BasilCare platform" {
+  usecase "Sign up / sign in\n(OAuth 2.0 + PKCE)" as UC0
+  usecase "View live values\nand history (FR-02)" as UC1
+  usecase "Receive an alert (FR-04)" as UC2
+  usecase "Acknowledge / resolve\nan incident (FR-04)" as UC3
+  usecase "Start / stop the pump\n(confirmed, safety-checked)" as UC4
+  usecase "Review a leaf screening\n(FR-05)" as UC5
+  usecase "Ask a cultivation question\n(RAG, FR-06)" as UC6
+  usecase "Register / disable a device" as UC7
+  usecase "Configure alert ranges" as UC8
+  usecase "Read the pump audit log" as UC9
+  usecase "Read reports\n(FR-09)" as UC10
+  usecase "Publish readings, status,\npump state, screenings (FR-01)" as UC11
+  usecase "Apply local pump\nsafety rules" as UC12
+  usecase "Detect incidents\n(thresholds, stale, offline,\npump fault, invalid data)" as UC13
+  usecase "Read history / request\nactions through MCP tools (FR-07)" as UC14
+}
+
+Farmer --> UC0
+Farmer --> UC1
+Farmer --> UC2
+Farmer --> UC3
+Farmer --> UC4
+Farmer --> UC5
+Farmer --> UC6
+Agro --> UC1
+Agro --> UC6
+Agro --> UC10
+Admin --> UC7
+Admin --> UC8
+Admin --> UC9
+Admin --> UC10
+Pi --> UC11
+UC4 ..> UC12 : <<include>>\n(re-checked on the device)
+UC11 ..> UC13 : <<include>>
+UC13 ..> UC2 : <<include>>
+AI --> UC14
+UC14 ..> UC4 : <<extend>>\nonly after the user confirms
+
+note right of UC6
+  planned (ai-service/),
+  not implemented yet
+end note
+note right of UC10
+  planned
+end note
+@enduml

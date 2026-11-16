@@ -46,11 +46,13 @@ public final class PumpSafetyPolicy {
             return Decision.reject("device_not_registered",
                     "This device is not in the registry. An administrator must register it first.");
         }
+        if ("off".equals(action)) {
+            // Stopping is always allowed, like on the device: a pump must never be left running
+            // because its device was disabled while it ran (review finding #1).
+            return Decision.accept();
+        }
         if (!facts.device().get().isEnabled()) {
             return Decision.reject("device_disabled", "This device is disabled in the registry.");
-        }
-        if ("off".equals(action)) {
-            return Decision.accept();   // stopping is always allowed, like on the device
         }
         if (facts.state().isEmpty() || !facts.state().get().isOnline()) {
             return Decision.reject("device_offline",

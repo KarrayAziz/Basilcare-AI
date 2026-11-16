@@ -29,6 +29,7 @@ class PumpConfig:
     # Device-side limits (contract section 5.2). The device enforces them even when the cloud is down.
     max_duration_s: int = 900
     min_water_level: float = 20.0
+    water_level_max_age_s: int = 0   # a level older than this is "unknown"; 0 = 3 x device.interval_s
     relay: str = "fake"            # "gpio" on the Pi, "fake" anywhere else
     gpio_pin: int = 17
     active_high: bool = True

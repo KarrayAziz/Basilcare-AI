@@ -91,16 +91,20 @@ public class TelemetryService {
         String deviceId = p.getString("device_id");
         DeviceState state = store.deviceState(deviceId).orElseGet(DeviceState::new);
         String reportedAt = p.isNull("reported_at") ? null : p.getString("reported_at");
+        String startedAt = p.getString("started_at");
         boolean online = p.getBoolean("online");
         // Retained replay of the message we already have: nothing new.
         if (deviceId.equals(state.getDeviceId()) && state.isOnline() == online
-                && p.getString("started_at").equals(state.getStartedAt())
+                && startedAt.equals(state.getStartedAt())
                 && reportedAt != null && reportedAt.equals(state.getReportedAt())) {
             return IngestResult.duplicate();
         }
+        if (deviceId.equals(state.getDeviceId()) && isOlderThanStored(state, startedAt, reportedAt)) {
+            return IngestResult.outdated();   // delivered late (retry): must not overwrite the newer state
+        }
         state.setDeviceId(deviceId);
         state.setOnline(online);
-        state.setStartedAt(p.getString("started_at"));
+        state.setStartedAt(startedAt);
         state.setTelemetryIntervalS(p.getInt("telemetry_interval_s"));
         state.setSoftware(p.containsKey("software") && !p.isNull("software") ? p.getString("software") : null);
         state.setReportedAt(reportedAt);
@@ -109,6 +113,28 @@ public class TelemetryService {
         store.saveDeviceState(state);
         incidents.onDeviceStatus(state);
         return IngestResult.stored();
+    }
+
+    /**
+     * Status messages can arrive out of order (Node-RED retries each one independently).
+     * An "offline" dated before the stored "online" must not mark the device offline again
+     * (review finding #6). A Last Will has no date: it is outdated when the device has
+     * restarted since (its started_at is older than the stored one). A Last Will from the
+     * current run is always applied, because nothing dates it.
+     */
+    static boolean isOlderThanStored(DeviceState stored, String startedAt, String reportedAt) {
+        var started = Timestamps.parse(startedAt);
+        var storedStarted = Timestamps.parse(stored.getStartedAt());
+        if (started.isPresent() && storedStarted.isPresent() && started.get().toInstant().isBefore(storedStarted.get().toInstant())) {
+            return true;
+        }
+        if (reportedAt == null) {
+            return false;
+        }
+        var reported = Timestamps.parse(reportedAt);
+        var storedReported = Timestamps.parse(stored.getReportedAt());
+        return reported.isPresent() && storedReported.isPresent()
+                && reported.get().toInstant().isBefore(storedReported.get().toInstant());
     }
 
     public IngestResult ingestScreening(JsonObject p) {

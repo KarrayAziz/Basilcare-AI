@@ -52,15 +52,20 @@ class GpioRelay:
 class PumpGuard:
     """Pure decision logic plus the relay. Methods return pump/state messages to publish."""
 
-    def __init__(self, device_id, relay, max_duration_s=900, min_water_level=20.0, clock=messages.local_now):
+    def __init__(self, device_id, relay, max_duration_s=900, min_water_level=20.0, water_level_max_age_s=15,
+                 clock=messages.local_now):
         self.device_id = device_id
         self.relay = relay
         self.max_duration_s = max_duration_s
         self.min_water_level = min_water_level
+        # A reading older than this is as good as none: a probe that stopped answering must not
+        # leave its last "safe" value in charge of the pump (review finding #4).
+        self.water_level_max_age_s = water_level_max_age_s
         self.clock = clock
         self.state = "off"
         self.until = None
         self.water_level = None
+        self.water_level_at = None
         self.handled = {}              # command_ids already processed (QoS 1 duplicates), oldest first
         self.lock = threading.Lock()   # commands arrive on the MQTT thread, the watchdog on another
         self.relay.off()
@@ -76,6 +81,13 @@ class PumpGuard:
     def set_water_level(self, level):
         with self.lock:
             self.water_level = level
+            self.water_level_at = self.clock()
+
+    def _water_level_known(self, now):
+        """True when a level was measured recently enough to be trusted."""
+        if self.water_level is None or self.water_level_at is None:
+            return False
+        return (now - self.water_level_at).total_seconds() <= self.water_level_max_age_s
 
     def _switch(self, state, now, duration_s=None):
         self.state = state
@@ -128,7 +140,7 @@ class PumpGuard:
                 return reject("pump_fault")
             if duration > self.max_duration_s:
                 return reject("duration_too_long")
-            if self.water_level is None:
+            if not self._water_level_known(now):
                 return reject("water_level_unknown")
             if self.water_level < self.min_water_level:
                 return reject("low_water_level")
@@ -142,7 +154,10 @@ class PumpGuard:
             if self.state == "on" and now >= self.until:
                 self._switch("off", now)
                 return self.message(now, reason="duration_elapsed")
-            if self.state == "on" and self.water_level is not None and self.water_level < self.min_water_level:
+            if self.state == "on" and not self._water_level_known(now):
+                self._switch("off", now)   # the probe went silent: running dry cannot be excluded
+                return self.message(now, reason="water_level_unknown")
+            if self.state == "on" and self.water_level < self.min_water_level:
                 self._switch("off", now)
                 return self.message(now, reason="low_water_level")
             return None

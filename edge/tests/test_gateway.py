@@ -85,6 +85,24 @@ class GatewayTest(unittest.TestCase):
         self.gateway.flush()
         self.assertEqual(["ph"], [p["sensor"] for p in self.telemetry()])
 
+    def test_a_crash_in_the_loop_still_switches_the_pump_off(self):
+        """Review finding #2: an exception (e.g. SD card full while saving a reading) used to exit
+        the loop with the relay still on and without telling the broker."""
+        self.gateway.measure()
+        self.guard.handle(json.dumps({"device_id": DEVICE, "command_id": "c-1", "action": "on", "duration_s": 600,
+                                      "requested_by": "farmer1", "requested_at": "2026-11-04T14:00:00+01:00",
+                                      "expires_at": "2026-11-04T14:01:00+01:00"}))
+        self.assertTrue(self.guard.relay.is_on)
+        self.gateway.outbox.add = lambda topic, payload: (_ for _ in ()).throw(OSError("No space left on device"))
+
+        with self.assertRaises(OSError):
+            self.gateway.run()
+
+        self.assertFalse(self.guard.relay.is_on)
+        topic, status, retain, _ = self.client.published[-1]
+        self.assertTrue(topic.endswith("/status") and retain)
+        self.assertFalse(status["online"])
+
     def test_clean_shutdown_switches_the_pump_off_and_says_offline(self):
         self.guard.relay.on()
         self.gateway.shutdown()

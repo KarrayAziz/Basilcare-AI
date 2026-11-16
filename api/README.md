@@ -28,7 +28,7 @@ Protected endpoints require `Authorization: Bearer <access-token>` with a token 
 | `GET` | `/api/pump/{deviceId}` | Farmer, Admin | Last pump state reported by the device, plus the API's limits |
 | `POST` | `/api/pump/{deviceId}/commands` | Farmer, Admin | `{"action": "on", "duration_s": 120, "confirm": true}`: 202 sent, 409 refused (with the reason), 428 not confirmed, 503 broker down |
 | `GET` | `/api/pump/commands?deviceId=&limit=` | Farmer, Admin | Pump audit log, newest first |
-| `POST` | `/api/ingest/{telemetry,status,pump-state,screening}` | Service key | MQTT payloads of [the contract](../docs/mqtt-contract.md), unchanged: 201 stored, 200 duplicate, 422 invalid |
+| `POST` | `/api/ingest/{telemetry,status,pump-state,screening}` | Service key | MQTT payloads of [the contract](../docs/mqtt-contract.md), unchanged: 201 stored, 200 duplicate or outdated (ignored), 422 invalid |
 | `POST` | `/api/ingest/invalid` | Service key | `{"topic", "errors"}` of a message Node-RED rejected: raises a device incident |
 
 Timestamps in query parameters are ISO 8601 with an offset, URL-encoded (`2026-11-04T14:05:00%2B01:00`).

@@ -49,10 +49,27 @@ const freshContext = () => {
 };
 const ingest = (attempts = 0) => ({ path: "telemetry", topic: `${T}/telemetry/ph`, body: { value: 6 }, attempts });
 
-test("the request keeps the body so a retry can resend it", () => {
+test("the request keeps url, method, headers and body so a retry can resend all of it", () => {
     const out = toApi({ topic: `${T}/status`, kind: "status", payload: { online: true } }, quietNode(), ENV);
     assert.deepEqual(out.ingest.body, { online: true });
+    assert.equal(out.ingest.url, "http://wildfly:8080/api/ingest/status");
+    assert.equal(out.ingest.method, "POST");
+    assert.equal(out.ingest.headers["X-Ingest-Key"], "k3y");
     assert.equal(out.ingest.attempts, 0);
+});
+
+test("a retry restores the X-Ingest-Key header the HTTP node overwrote (review finding #3)", () => {
+    const request = toApi({ topic: `${T}/status`, kind: "status", payload: { online: true } }, quietNode(), ENV);
+    // what the HTTP node leaves behind after a 503: response headers and body, status code
+    const afterHttp = { ...request, statusCode: 503, payload: "Service Unavailable",
+        headers: { "content-type": "text/html", "x-powered-by": "Undertow" }, responseUrl: request.url };
+    const [retry] = checkAnswer(afterHttp, quietNode(), freshContext());
+    assert.equal(retry.headers["X-Ingest-Key"], "k3y");
+    assert.equal(retry.headers["Content-Type"], "application/json");
+    assert.equal(retry.url, "http://wildfly:8080/api/ingest/status");
+    assert.equal(retry.method, "POST");
+    assert.deepEqual(retry.payload, { online: true });
+    assert.equal(retry.statusCode, undefined);
 });
 
 test("2xx answers are only counted", () => {

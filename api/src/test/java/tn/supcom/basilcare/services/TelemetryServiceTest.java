@@ -75,6 +75,33 @@ class TelemetryServiceTest {
     }
 
     @Test
+    void aLateOfflineMessageDoesNotOverwriteANewerOnlineOne() {
+        // review finding #6: Node-RED retries each message on its own, so order is not guaranteed
+        var w = new Fakes.World();
+        String goodbye = w.now();
+        w.clock.advance(Duration.ofSeconds(30));
+        w.online(DEVICE);
+        var late = w.telemetry.ingestStatus(Fakes.status(DEVICE, false, goodbye));
+
+        assertEquals(IngestResult.Outcome.OUTDATED, late.outcome());
+        assertTrue(w.store.states.get(DEVICE).isOnline());
+        assertEquals(0, w.store.incidents.size(), "no false offline incident");
+    }
+
+    @Test
+    void aLastWillFromBeforeARestartIsOutdatedButACurrentOneApplies() {
+        var w = new Fakes.World();
+        w.online(DEVICE);   // started_at 08:00
+        var oldWill = jakarta.json.Json.createObjectBuilder(Fakes.status(DEVICE, false, null))
+                .add("started_at", "2026-11-04T07:00:00+01:00").build();
+        assertEquals(IngestResult.Outcome.OUTDATED, w.telemetry.ingestStatus(oldWill).outcome());
+        assertTrue(w.store.states.get(DEVICE).isOnline());
+
+        assertEquals(IngestResult.Outcome.STORED, w.telemetry.ingestStatus(Fakes.status(DEVICE, false, null)).outcome());
+        assertFalse(w.store.states.get(DEVICE).isOnline());
+    }
+
+    @Test
     void historyIsOrderedByMeasurementTimeNotArrival() {
         var w = new Fakes.World();
         String late = w.now();

@@ -1,5 +1,6 @@
 # Runs the gateway at boot and restarts it if it crashes.
-# Install (on the Pi, repository cloned in /home/pi/Basilcare-AI):
+# User "raspberry" = the account created in Raspberry Pi Imager; change User= and the paths if yours differs.
+# Install (on the Pi, repository cloned in /home/raspberry/Basilcare-AI):
 #   sudo cp edge/systemd/basilcare-edge.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now basilcare-edge
 #   journalctl -u basilcare-edge -f          # follow the log
@@ -9,11 +10,11 @@ After=network-online.target time-sync.target
 Wants=network-online.target
 
 [Service]
-User=pi
-Group=gpio
-SupplementaryGroups=i2c video
-WorkingDirectory=/home/pi/Basilcare-AI/edge
-ExecStart=/home/pi/Basilcare-AI/edge/.venv/bin/python -m basilcare_edge --config /home/pi/Basilcare-AI/edge/config.toml
+User=raspberry
+Group=raspberry
+SupplementaryGroups=gpio i2c video
+WorkingDirectory=/home/raspberry/Basilcare-AI/edge
+ExecStart=/home/raspberry/Basilcare-AI/edge/.venv/bin/python -m basilcare_edge --config /home/raspberry/Basilcare-AI/edge/config.toml
 # SIGTERM -> the gateway switches the pump off and publishes "offline" before exiting
 KillSignal=SIGTERM
 TimeoutStopSec=15

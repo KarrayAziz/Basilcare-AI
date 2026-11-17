@@ -37,7 +37,15 @@ simulator/.venv/Scripts/python simulator/simulator.py --fault ph-drift &
 python deploy/smoke_test.py                                 # end-to-end check, prints SMOKE TEST PASSED
 ```
 
-Then serve the PWAs (VS Code Live Server: `pwa-farmer` on port 5500, `pwa-admin` on 5501) and sign in as `admin` / `change-me-now`.
+WildFly serves both PWAs directly; no Live Server is required:
+
+- Farmer: <http://localhost:8080/farmer/>
+- Admin: <http://localhost:8080/admin/>
+- Application chooser: <http://localhost:8080/>
+
+Sign in as `admin` / `change-me-now` on a fresh development database (or use the password
+configured in `deploy/.env`). See [WildFly hosting](deploy/wildfly/README.md) for the CLI
+configuration, production settings and offline/login isolation.
 
 ## Tests
 
@@ -48,5 +56,6 @@ Then serve the PWAs (VS Code Live Server: `pwa-farmer` on port 5500, `pwa-admin`
 | Simulator | `cd simulator && python -m unittest` |
 | Node-RED and PWAs | `node --test "nodered/test/*.test.js" "pwa-farmer/test/*.test.mjs" "pwa-admin/test/*.test.js"` |
 | Whole stack | `python deploy/smoke_test.py` |
+| WildFly hosting and both PKCE redirects | `python deploy/hosting_smoke_test.py` |
 
 CI runs the first four on every pull request (`.github/workflows/`).

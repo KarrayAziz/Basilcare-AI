@@ -4,12 +4,14 @@ Everything needed to run BasilCare: the Docker Compose stack, the broker configu
 
 | File | Role |
 |---|---|
-| [`compose.yaml`](compose.yaml) | MongoDB, Mosquitto, Node-RED, WildFly (with `iam.war` and `api.war`) |
+| [`compose.yaml`](compose.yaml) | MongoDB, Mosquitto, Node-RED, WildFly (both PWAs, `iam.war` and `api.war`) |
+| [`wildfly/`](wildfly/README.md) | repeatable CLI configuration and development/production properties for serving the PWAs |
 | [`mosquitto/mosquitto.conf`](mosquitto/mosquitto.conf) | development broker: anonymous on 1883, **persistence on**, so sessions and queued messages survive a restart |
 | [`.env.example`](.env.example) | the secrets to set in `deploy/.env` (git-ignored): `INGEST_KEY`, `ADMIN_PASSWORD`, Node-RED keys |
 | [`setup.sh`](setup.sh) | one-time preparation of an Ubuntu VM: Docker, `git clone`, random secrets, firewall |
 | [`deploy.sh`](deploy.sh) | `git pull` → build and test both WARs (in a Maven container) → `docker compose up` → health check |
 | [`smoke_test.py`](smoke_test.py) | end-to-end acceptance test of the demo path (scope §8.4), standard library only |
+| [`hosting_smoke_test.py`](hosting_smoke_test.py) | static assets and PKCE redirects for both PWAs; requires only WildFly + MongoDB |
 
 ## Why it is organised this way
 
@@ -26,6 +28,7 @@ Everything needed to run BasilCare: the Docker Compose stack, the broker configu
 export MSYS_NO_PATHCONV=1                                  # Git Bash only
 docker compose -f deploy/compose.yaml up -d
 curl localhost:8080/api/health
+python deploy/hosting_smoke_test.py                       # assets and both login flows
 python simulator/simulator.py --fault ph-drift             # in its venv, see simulator/README.md
 python deploy/smoke_test.py                                # signs in as admin / change-me-now
 ```
@@ -42,6 +45,12 @@ SMOKE TEST PASSED
 
 After changing Java code, rebuild the WAR and run `docker compose -f deploy/compose.yaml restart wildfly`.
 
+Open <http://localhost:8080/farmer/> and <http://localhost:8080/admin/>. WildFly serves the
+frontend folders through read-only mounts. CLI configuration is reapplied on every start,
+including a new container; no manual server edits are required. Authentication returns to
+the app's own path. Frontend file edits are available immediately; refresh/update the service
+worker when testing an already installed app.
+
 ### Server
 
 ```bash
@@ -50,3 +59,9 @@ bash deploy/deploy.sh                                          # every update
 ```
 
 Ports 1880 (Node-RED editor), 1883 (MQTT without TLS) and 8080 (WildFly) are for development only. Before exposing the server, put a TLS reverse proxy in front of WildFly, configure Mosquitto TLS with per-device logins and the ACL of contract §9, and set `NODE_RED_ADMIN_HASH`.
+
+Set `PUBLIC_ORIGIN=https://your-domain.example` (no trailing slash) and `HOSTING_ENV=prod`
+in `deploy/.env` before recreating the WildFly container. The TLS proxy must forward
+`/farmer/`, `/admin/`, `/api/` and `/iam/` to WildFly without stripping their prefixes.
+It must preserve the public Host and HTTPS scheme for login redirects. See
+[hosting deployment notes](wildfly/README.md) for details.

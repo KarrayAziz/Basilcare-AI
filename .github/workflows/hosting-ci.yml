@@ -1,0 +1,66 @@
+name: WildFly PWA hosting CI
+
+on:
+  pull_request:
+    paths: ["deploy/**", "pwa-farmer/**", "pwa-admin/**", "api/**", "iam/**", ".github/workflows/hosting-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["deploy/**", "pwa-farmer/**", "pwa-admin/**", "api/**", "iam/**", ".github/workflows/hosting-ci.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-hosting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Check frontend identity, redirects and cache isolation
+        run: node --test pwa-farmer/test/*.mjs pwa-admin/test/*.js
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: "**/pom.xml"
+      - name: Build and test both Java applications
+        run: |
+          mvn --batch-mode --no-transfer-progress --file iam/pom.xml verify
+          mvn --batch-mode --no-transfer-progress --file api/pom.xml verify
+      - name: Start isolated MongoDB and WildFly services
+        run: docker compose -p hosting-ci -f deploy/compose.yaml up -d --no-deps mongodb wildfly
+      - name: Wait for deployments and verify static hosting and PKCE
+        run: |
+          ready=false
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:8080/api/health >/dev/null && curl -fsS http://localhost:8080/iam/jwk >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 3
+          done
+          "$ready" || { echo "WildFly did not become ready"; exit 1; }
+          python3 deploy/hosting_smoke_test.py
+      - name: Verify configuration survives a restart
+        run: |
+          docker compose -p hosting-ci -f deploy/compose.yaml restart wildfly
+          ready=false
+          for attempt in {1..60}; do
+            if curl -fsS http://localhost:8080/api/health >/dev/null && curl -fsS http://localhost:8080/iam/jwk >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 3
+          done
+          "$ready" || { echo "WildFly did not restart"; exit 1; }
+          python3 deploy/hosting_smoke_test.py
+      - name: Service logs
+        if: always()
+        run: docker compose -p hosting-ci -f deploy/compose.yaml logs --tail=160 wildfly mongodb
+      - name: Clean up isolated services
+        if: always()
+        run: docker compose -p hosting-ci -f deploy/compose.yaml down --volumes

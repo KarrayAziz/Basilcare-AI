@@ -5,8 +5,8 @@ WildFly's Undertow subsystem serves the actual frontend files:
 | URL | Content |
 |---|---|
 | `/` | application chooser (`welcome/index.html`) |
-| `/farmer/` | `pwa-farmer/` |
-| `/admin/` | `pwa-admin/` |
+| `/farmer/` | `frontends/frontoffice/` |
+| `/admin/` | `frontends/backoffice/` |
 | `/api/` | existing API WAR |
 | `/iam/` | existing IAM WAR |
 
@@ -66,7 +66,7 @@ security boundary. The API and IAM continue to enforce roles and signatures.
 
 ```bash
 # Unit checks for paths, callbacks, session separation and cache isolation
-node pwa-farmer/test/hosting.test.mjs
+node frontends/frontoffice/test/hosting.test.mjs
 
 # Real server assets plus login/token exchange for both clients (WildFly + MongoDB running)
 python3 deploy/hosting_smoke_test.py

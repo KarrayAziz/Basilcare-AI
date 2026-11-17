@@ -24,12 +24,12 @@ Everything needed to run BasilCare: the Docker Compose stack, the broker configu
 ### Development (laptop)
 
 ```bash
-(cd iam && mvn -q package) && (cd api && mvn -q package)
+(cd middleware/iam && mvn -q package) && (cd middleware/api && mvn -q package)
 export MSYS_NO_PATHCONV=1                                  # Git Bash only
 docker compose -f deploy/compose.yaml up -d
 curl localhost:8080/api/health
 python deploy/hosting_smoke_test.py                       # assets and both login flows
-python simulator/simulator.py --fault ph-drift             # in its venv, see simulator/README.md
+python iot/simulator/simulator.py --fault ph-drift             # in its venv, see iot/simulator/README.md
 python deploy/smoke_test.py                                # signs in as admin / change-me-now
 ```
 

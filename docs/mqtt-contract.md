@@ -1,8 +1,8 @@
 # MQTT contract, version 1
 
-This document fixes the MQTT topics and JSON messages exchanged between a BasilCare **device** (the Raspberry Pi gateway, or [`simulator/simulator.py`](../simulator/simulator.py) standing in for it) and the **cloud** (Mosquitto → Node-RED → Jakarta EE API).
+This document fixes the MQTT topics and JSON messages exchanged between a BasilCare **device** (the Raspberry Pi gateway, or [`iot/simulator/simulator.py`](../iot/simulator/simulator.py) standing in for it) and the **cloud** (Mosquitto → Node-RED → Jakarta EE API).
 
-Every component that publishes or subscribes follows it: `edge/`, `simulator/`, the Node-RED flows, the API, and, through the API, the MCP tools. A change to a topic or a field starts with a change to this file.
+Every component that publishes or subscribes follows it: `iot/edge/`, `iot/simulator/`, the Node-RED flows, the API, and, through the API, the MCP tools. A change to a topic or a field starts with a change to this file.
 
 ---
 

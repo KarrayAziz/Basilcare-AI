@@ -3,12 +3,12 @@ name: API CI
 on:
   pull_request:
     paths:
-      - "api/**"
+      - "middleware/api/**"
       - ".github/workflows/api-ci.yml"
   push:
     branches: [main]
     paths:
-      - "api/**"
+      - "middleware/api/**"
       - ".github/workflows/api-ci.yml"
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
-          cache-dependency-path: api/pom.xml
+          cache-dependency-path: middleware/api/pom.xml
 
       - name: Compile and test the API
-        run: mvn --batch-mode --file api/pom.xml verify
+        run: mvn --batch-mode --file middleware/api/pom.xml verify

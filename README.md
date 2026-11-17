@@ -3,7 +3,7 @@
 An intelligent Cloud of Things platform for a small hydroponic sweet-basil farm. Cloud of Things project, SUP'COM 2026-2027: Leith Ben Mabrouk, Aziz Karray, Amir Triki. The scope is in [`docs/BasilCare_Scope_Statement.pdf`](docs/BasilCare_Scope_Statement.pdf).
 
 ```
-Raspberry Pi 4 (edge/)                        Cloud (deploy/compose.yaml)                         Phones
+Raspberry Pi 4 (iot/edge/)                        Cloud (deploy/compose.yaml)                         Phones
 sensors ─► gateway ─► SQLite queue ─► MQTT ─► Mosquitto ─► Node-RED ─► Jakarta EE API ─► MongoDB
 camera ─► quality + TFLite model ─┘            (persistence)  (contract   (WildFly 42)        ▲
 pump relay ◄─ local safety rules ◄─ pump/cmd ◄──────────────── checks)    │  ▲ IAM (OAuth+PKCE)
@@ -12,28 +12,52 @@ pump relay ◄─ local safety rules ◄─ pump/cmd ◄────────
 
 ## Repository
 
+The application is organised into three areas:
+
+```text
+middleware/             server applications
+  core/                 reserved for shared code (no implementation yet)
+  api/                  REST API
+  iam/                  accounts and login
+frontends/
+  frontoffice/          Farmer PWA, served at /farmer/
+  backoffice/           Admin PWA, served at /admin/
+iot/
+  node-red/             MQTT ingestion flows
+  edge/                 Raspberry Pi gateway
+  simulator/            simulated gateway
+  ai/
+    model/              leaf-model training and evaluation
+    service/            planned AI assistant
+```
+
+Deployment scripts, documentation and Postman collections remain in `deploy/`, `docs/`
+and `postman/`. The team's `ATTRIBUTION.md` stays at the repository root.
+Folder moves do not change HTTP addresses, MQTT topics or OAuth client IDs.
+See the [migration notes](docs/repository-structure.md) when updating an existing checkout.
+
 | Folder | What | Status |
 |---|---|---|
 | [`docs/`](docs/README.md) | scope, [MQTT contract](docs/mqtt-contract.md), [design statement draft and UML](docs/design/README.md), [decisions](docs/decisions/), [user stories](docs/user-stories.md) | ✅ |
-| [`iam/`](iam/README.md) | identity service: registration, OAuth 2.0 authorization code + PKCE, Ed25519 JWTs | ✅ |
-| [`api/`](api/README.md) | REST API: devices, telemetry, incidents, alert ranges, safe pump control, ingestion | ✅ 41 tests |
-| [`nodered/`](nodered/README.md) | ingestion flow: checks every message against the contract, forwards it to the API, retries | ✅ 17 tests |
-| [`simulator/`](simulator/README.md) | simulated Pi with fault injection | ✅ 21 tests |
-| [`edge/`](edge/README.md) | Raspberry Pi gateway: sensors (simulated or real), offline queue, local pump safety, leaf screening | ✅ 37 tests; real probes not yet tested |
-| [`model/`](model/README.md) | leaf-screening model: dataset split, training, int8 export, evaluation | ✅ pipeline; no real dataset yet |
-| [`pwa-farmer/`](pwa-farmer/README.md), [`pwa-admin/`](pwa-admin/README.md) | installable PWAs: live dashboard, alerts, pump, screening / registry, alert ranges, audit | 🟡 needs a browser check |
+| [`middleware/iam/`](middleware/iam/README.md) | identity service: registration, OAuth 2.0 authorization code + PKCE, Ed25519 JWTs | ✅ |
+| [`middleware/api/`](middleware/api/README.md) | REST API: devices, telemetry, incidents, alert ranges, safe pump control, ingestion | ✅ 41 tests |
+| [`iot/node-red/`](iot/node-red/README.md) | ingestion flow: checks every message against the contract, forwards it to the API, retries | ✅ 17 tests |
+| [`iot/simulator/`](iot/simulator/README.md) | simulated Pi with fault injection | ✅ 21 tests |
+| [`iot/edge/`](iot/edge/README.md) | Raspberry Pi gateway: sensors (simulated or real), offline queue, local pump safety, leaf screening | ✅ 37 tests; real probes not yet tested |
+| [`iot/ai/model/`](iot/ai/model/README.md) | leaf-screening model: dataset split, training, int8 export, evaluation | ✅ pipeline; no real dataset yet |
+| [`frontends/frontoffice/`](frontends/frontoffice/README.md), [`frontends/backoffice/`](frontends/backoffice/README.md) | installable PWAs: live dashboard, alerts, pump, screening / registry, alert ranges, audit | 🟡 needs a browser check |
 | [`deploy/`](deploy/README.md) | Compose stack, broker config, `.env.example`, `setup.sh`, `deploy.sh`, [end-to-end smoke test](deploy/smoke_test.py) | ✅ smoke test passes |
 | [`postman/`](postman/README.md) | API collection (28 requests, OAuth 2.0 PKCE) | 🟡 not yet run in Postman |
-| [`ai-service/`](ai-service/README.md) | RAG assistant, MCP tools, LLMOps | ⬜ next |
+| [`iot/ai/service/`](iot/ai/service/README.md) | RAG assistant, MCP tools, LLMOps | ⬜ next |
 
 ## Quick start (laptop, Docker Desktop, JDK 25, Maven, Python 3.11+)
 
 ```bash
-(cd iam && mvn -q package) && (cd api && mvn -q package)
+(cd middleware/iam && mvn -q package) && (cd middleware/api && mvn -q package)
 export MSYS_NO_PATHCONV=1                                   # Git Bash only
 docker compose -f deploy/compose.yaml up -d                 # MongoDB, Mosquitto, Node-RED, WildFly
-python -m venv simulator/.venv && simulator/.venv/Scripts/pip install -r simulator/requirements.txt
-simulator/.venv/Scripts/python simulator/simulator.py --fault ph-drift &
+python -m venv iot/simulator/.venv && iot/simulator/.venv/Scripts/pip install -r iot/simulator/requirements.txt
+iot/simulator/.venv/Scripts/python iot/simulator/simulator.py --fault ph-drift &
 python deploy/smoke_test.py                                 # end-to-end check, prints SMOKE TEST PASSED
 ```
 
@@ -51,10 +75,10 @@ configuration, production settings and offline/login isolation.
 
 | What | Command |
 |---|---|
-| API | `cd api && mvn verify` |
-| Edge gateway | `cd edge && python -m unittest discover -s tests -t .` |
-| Simulator | `cd simulator && python -m unittest` |
-| Node-RED and PWAs | `node --test "nodered/test/*.test.js" "pwa-farmer/test/*.test.mjs" "pwa-admin/test/*.test.js"` |
+| API | `cd middleware/api && mvn verify` |
+| Edge gateway | `cd iot/edge && python -m unittest discover -s tests -t .` |
+| Simulator | `cd iot/simulator && python -m unittest` |
+| Node-RED and PWAs | `node --test "iot/node-red/test/*.test.js" "frontends/frontoffice/test/*.mjs" "frontends/backoffice/test/*.js"` |
 | Whole stack | `python deploy/smoke_test.py` |
 | WildFly hosting and both PKCE redirects | `python deploy/hosting_smoke_test.py` |
 

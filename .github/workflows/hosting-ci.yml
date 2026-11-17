@@ -2,10 +2,10 @@ name: WildFly PWA hosting CI
 
 on:
   pull_request:
-    paths: ["deploy/**", "pwa-farmer/**", "pwa-admin/**", "api/**", "iam/**", ".github/workflows/hosting-ci.yml"]
+    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".github/workflows/hosting-ci.yml"]
   push:
     branches: [main]
-    paths: ["deploy/**", "pwa-farmer/**", "pwa-admin/**", "api/**", "iam/**", ".github/workflows/hosting-ci.yml"]
+    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".github/workflows/hosting-ci.yml"]
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: "22"
       - name: Check frontend identity, redirects and cache isolation
-        run: node --test pwa-farmer/test/*.mjs pwa-admin/test/*.js
+        run: node --test frontends/frontoffice/test/*.mjs frontends/backoffice/test/*.js
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -29,8 +29,8 @@ jobs:
           cache-dependency-path: "**/pom.xml"
       - name: Build and test both Java applications
         run: |
-          mvn --batch-mode --no-transfer-progress --file iam/pom.xml verify
-          mvn --batch-mode --no-transfer-progress --file api/pom.xml verify
+          mvn --batch-mode --no-transfer-progress --file middleware/iam/pom.xml verify
+          mvn --batch-mode --no-transfer-progress --file middleware/api/pom.xml verify
       - name: Start isolated MongoDB and WildFly services
         run: docker compose -p hosting-ci -f deploy/compose.yaml up -d --no-deps mongodb wildfly
       - name: Wait for deployments and verify static hosting and PKCE

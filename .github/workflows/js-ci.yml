@@ -3,16 +3,16 @@ name: Node-RED and PWA CI
 on:
   pull_request:
     paths:
-      - "nodered/**"
-      - "pwa-farmer/**"
-      - "pwa-admin/**"
+      - "iot/node-red/**"
+      - "frontends/frontoffice/**"
+      - "frontends/backoffice/**"
       - ".github/workflows/js-ci.yml"
   push:
     branches: [main]
     paths:
-      - "nodered/**"
-      - "pwa-farmer/**"
-      - "pwa-admin/**"
+      - "iot/node-red/**"
+      - "frontends/frontoffice/**"
+      - "frontends/backoffice/**"
       - ".github/workflows/js-ci.yml"
 
 permissions:
@@ -32,7 +32,7 @@ jobs:
           node-version: "24"
 
       - name: Node-RED flow tests
-        run: node --test "nodered/test/*.test.js"
+        run: node --test "iot/node-red/test/*.test.js"
 
       - name: PWA tests
-        run: node --test "pwa-farmer/test/*.test.mjs" "pwa-admin/test/*.test.js"
+        run: node --test "frontends/frontoffice/test/*.mjs" "frontends/backoffice/test/*.js"

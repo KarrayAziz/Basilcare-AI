@@ -35,11 +35,11 @@ echo "== build iam.war and api.war (tests included)"
 if command -v mvn >/dev/null 2>&1 && mvn -v 2>/dev/null | grep -q "Java version: 25"; then
     # Two separate statements on purpose: under "set -e" a failure inside an "a && b" list does
     # NOT stop the script, so a broken IAM build used to deploy the old iam.war (review finding #7).
-    (cd iam && mvn -B -q verify) || { echo "IAM build failed: nothing deployed"; exit 1; }
-    (cd api && mvn -B -q verify) || { echo "API build failed: nothing deployed"; exit 1; }
+    (cd middleware/iam && mvn -B -q verify) || { echo "IAM build failed: nothing deployed"; exit 1; }
+    (cd middleware/api && mvn -B -q verify) || { echo "API build failed: nothing deployed"; exit 1; }
 else
     docker run --rm -v "$PWD":/src -v basilcare-m2:/root/.m2 -w /src maven:3.9-eclipse-temurin-25 \
-        bash -c "cd iam && mvn -B -q verify && cd ../api && mvn -B -q verify" \
+        bash -c "cd middleware/iam && mvn -B -q verify && cd ../api && mvn -B -q verify" \
         || { echo "build failed: nothing deployed"; exit 1; }
 fi
 

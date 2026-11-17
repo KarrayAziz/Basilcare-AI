@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "427453d3-971f-5b86-a874-de04fc2db6ce",
     "name": "BasilCare API",
-    "description": "BasilCare REST API (Jakarta EE 11 on WildFly).\n\n1. Import this collection and BasilCare-local.postman_environment.json, select the environment.\n2. Collection > Authorization > Get New Access Token: signs in through the IAM with OAuth 2.0 authorization code + PKCE (user admin, password = ADMIN_PASSWORD, change-me-now in development).\n3. Run the folders in order (Collection Runner works). The ingest folder uses the X-Ingest-Key service key instead of a user token.\n\nEndpoint reference: api/README.md.",
+    "description": "BasilCare REST API (Jakarta EE 11 on WildFly).\n\n1. Import this collection and BasilCare-local.postman_environment.json, select the environment.\n2. Collection > Authorization > Get New Access Token: signs in through the IAM with OAuth 2.0 authorization code + PKCE (user admin, password = ADMIN_PASSWORD, change-me-now in development).\n3. Run the folders in order (Collection Runner works). The ingest folder uses the X-Ingest-Key service key instead of a user token.\n\nEndpoint reference: middleware/api/README.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {

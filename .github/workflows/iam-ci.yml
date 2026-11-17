@@ -1,10 +1,10 @@
 name: IAM CI
 on:
   pull_request:
-    paths: ["iam/**", ".github/workflows/iam-ci.yml"]
+    paths: ["middleware/iam/**", ".github/workflows/iam-ci.yml"]
   push:
     branches: [main]
-    paths: ["iam/**", ".github/workflows/iam-ci.yml"]
+    paths: ["middleware/iam/**", ".github/workflows/iam-ci.yml"]
 permissions:
   contents: read
 jobs:
@@ -17,5 +17,5 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
-          cache-dependency-path: iam/pom.xml
-      - run: mvn --batch-mode --file iam/pom.xml verify
+          cache-dependency-path: middleware/iam/pom.xml
+      - run: mvn --batch-mode --file middleware/iam/pom.xml verify

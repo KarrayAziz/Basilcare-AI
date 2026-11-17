@@ -28,7 +28,7 @@ services:
       NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-}   # empty in development
       NODE_RED_ADMIN_HASH: ${NODE_RED_ADMIN_HASH:-}                 # empty = editor without login
     volumes:
-      - ../nodered:/data                    # Deploy in the editor saves to the repository's flows.json
+      - ../iot/node-red:/data               # Deploy in the editor saves to the repository's flows.json
     depends_on: [mosquitto]
 
   wildfly:
@@ -46,11 +46,11 @@ services:
       CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
       BASILCARE_HOSTING_PROPERTIES: /opt/jboss/wildfly/hosting/pwas-${HOSTING_ENV:-dev}.properties
     volumes:
-      - ../iam/target/iam.war:/opt/jboss/wildfly/standalone/deployments/iam.war:ro
-      - ../api/target/api.war:/opt/jboss/wildfly/standalone/deployments/api.war:ro
+      - ../middleware/iam/target/iam.war:/opt/jboss/wildfly/standalone/deployments/iam.war:ro
+      - ../middleware/api/target/api.war:/opt/jboss/wildfly/standalone/deployments/api.war:ro
       - ./wildfly:/opt/jboss/wildfly/hosting:ro
-      - ../pwa-farmer:/opt/jboss/wildfly/frontends/farmer:ro
-      - ../pwa-admin:/opt/jboss/wildfly/frontends/admin:ro
+      - ../frontends/frontoffice:/opt/jboss/wildfly/frontends/farmer:ro
+      - ../frontends/backoffice:/opt/jboss/wildfly/frontends/admin:ro
     depends_on: [mongodb, mosquitto]
 
 volumes:

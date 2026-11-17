@@ -17,7 +17,7 @@ The Postman collection of the deployed REST API (scope §6.1), with one test scr
 
 1. Postman → *Import* both files, then select the **BasilCare local** environment.
 2. Collection → *Authorization* → **Get New Access Token**. Sign in as `admin` (password `change-me-now` in development, `ADMIN_PASSWORD` from `deploy/.env` on the server), then click *Use Token*.
-3. Start the simulator (`python simulator/simulator.py --fault ph-drift`) so there are readings and incidents.
+3. Start the simulator (`python iot/simulator/simulator.py --fault ph-drift`) so there are readings and incidents.
 4. Run the folders in order, or use the *Collection Runner*.
 
 On the server, duplicate the environment and set `baseUrl` to the public HTTPS address and `ingestKey` to the value in `deploy/.env`.

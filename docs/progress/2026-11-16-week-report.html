@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasilCare Weekly Report</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f7f8f5;
+  --surface-1: #fcfcfb;
+  --surface-2: #eef2ec;
+  --border: #dde3da;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #6f6e69;
+  --accent: #2f6b3a;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --grid: #e6e8e3;
+  --good: #1f7a36;
+  --warn: #9a5b00;
+  --bad: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: #121311;
+    --surface-1: #1a1a19;
+    --surface-2: #232622;
+    --border: #34382f;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #9c9b92;
+    --accent: #7cc48a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --grid: #2d302a;
+    --good: #5cc173;
+    --warn: #e0a54a;
+    --bad: #ef7a72;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121311; --surface-1: #1a1a19; --surface-2: #232622; --border: #34382f;
+  --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #9c9b92; --accent: #7cc48a;
+  --series-1: #3987e5; --series-2: #d95926; --grid: #2d302a;
+  --good: #5cc173; --warn: #e0a54a; --bad: #ef7a72;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text-primary);
+       font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+h2 { font-size: 1.4rem; margin: 48px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+h3 { font-size: 1.1rem; margin: 28px 0 8px; }
+p, li { color: var(--text-primary); }
+.lead { font-size: 1.1rem; color: var(--text-secondary); }
+.muted { color: var(--text-muted); font-size: .92rem; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 16px 0; }
+.callout { background: var(--surface-2); border-left: 4px solid var(--accent); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 16px 0; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .num { font-size: 1.9rem; font-weight: 650; line-height: 1.1; }
+.tile .lbl { color: var(--text-secondary); font-size: .9rem; }
+table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-size: .88em; }
+.tag { display: inline-block; font-size: .78rem; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-secondary); }
+.ok { color: var(--good); font-weight: 600; }
+.wip { color: var(--warn); font-weight: 600; }
+.no { color: var(--text-muted); font-weight: 600; }
+svg text { fill: var(--text-primary); font-family: inherit; }
+svg .t2 { fill: var(--text-secondary); }
+svg .tm { fill: var(--text-muted); }
+.diagram { width: 100%; height: auto; display: block; }
+.box { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+.box-a { fill: var(--surface-1); stroke: var(--accent); stroke-width: 2; }
+.arrow { stroke: var(--text-secondary); stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+.arrow-back { stroke: var(--accent); stroke-width: 2; fill: none; stroke-dasharray: 6 4; marker-end: url(#arrowhead-g); }
+.chart { width: 100%; height: auto; display: block; }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .bar1 { fill: var(--series-1); }
+.chart .bar2 { fill: var(--series-2); }
+.chart .hit { fill: transparent; cursor: default; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: .9rem; color: var(--text-secondary); margin: 6px 0 4px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--text-secondary); font-size: .9rem; }
+#tip { position: fixed; pointer-events: none; background: var(--surface-1); color: var(--text-primary);
+       border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: .85rem;
+       box-shadow: 0 4px 14px #0003; opacity: 0; transition: opacity .1s; z-index: 10; max-width: 260px; }
+.timeline { list-style: none; padding: 0; margin: 0; border-left: 3px solid var(--border); }
+.timeline li { position: relative; padding: 0 0 18px 22px; }
+.timeline li::before { content: ""; position: absolute; left: -9px; top: 6px; width: 15px; height: 15px; border-radius: 50%;
+                        background: var(--surface-1); border: 3px solid var(--accent); }
+.timeline .when { font-weight: 650; }
+@media (max-width: 560px) { h1 { font-size: 1.6rem; } }
+</style>
+</head>
+<body>
+<main>
+
+<p class="muted">BasilCare AI · Cloud of Things project, SUP'COM 2026–2027 · week of 9 to 16 November 2026</p>
+<h1>Where BasilCare stands this week</h1>
+<p class="lead">A plain-language report of what the team built this week, what was tested, what happened today with the Raspberry Pi and the camera, and what comes next. No programming background needed.</p>
+
+<div class="tiles">
+  <div class="tile"><div class="num">5</div><div class="lbl">pull requests this week (4 merged, 1 waiting for review)</div></div>
+  <div class="tile"><div class="num">125</div><div class="lbl">automatic tests, all passing</div></div>
+  <div class="tile"><div class="num">0</div><div class="lbl">readings lost when the network or a server was cut</div></div>
+  <div class="tile"><div class="num">1st</div><div class="lbl">real data from the Raspberry Pi and its camera (today)</div></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1. BasilCare in one picture</h2>
+<p>BasilCare watches a small hydroponic basil farm, where the plants grow in water with nutrients instead of soil. Small sensors measure the water and the air. A camera photographs the leaves. A <strong>Raspberry Pi</strong> (a credit-card-sized computer) collects everything and sends it to a <strong>server</strong>. The farmer then sees it all on a phone app, and gets an alert when something goes wrong.</p>
+
+<div class="card">
+<svg class="diagram" viewBox="0 0 880 312" role="img" aria-label="Data travels from sensors and camera through the Raspberry Pi, the message broker, Node-RED and the API to the database and the phone apps; pump commands travel back.">
+  <defs>
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--text-secondary)"/></marker>
+    <marker id="arrowhead-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+  </defs>
+  <text x="95" y="24" text-anchor="middle" class="t2" font-size="13">ON THE FARM</text>
+  <text x="560" y="24" text-anchor="middle" class="t2" font-size="13">ON THE SERVER (your laptop for now)</text>
+  <rect class="box" x="10" y="40" width="170" height="60" rx="10"/><text x="95" y="66" text-anchor="middle" font-size="15">Sensors + camera</text><text x="95" y="86" text-anchor="middle" class="tm" font-size="12">pH, water, air, leaves</text>
+  <rect class="box-a" x="10" y="140" width="170" height="70" rx="10"/><text x="95" y="168" text-anchor="middle" font-size="15" font-weight="600">Raspberry Pi</text><text x="95" y="188" text-anchor="middle" class="tm" font-size="12">collects, keeps a backup,</text><text x="95" y="202" text-anchor="middle" class="tm" font-size="12">protects the pump</text>
+  <path class="arrow" d="M95,100 L95,136"/>
+  <rect class="box" x="240" y="140" width="140" height="70" rx="10"/><text x="310" y="168" text-anchor="middle" font-size="15">Mosquitto</text><text x="310" y="188" text-anchor="middle" class="tm" font-size="12">the "post office"</text>
+  <path class="arrow" d="M180,165 L236,165"/>
+  <rect class="box" x="420" y="140" width="130" height="70" rx="10"/><text x="485" y="168" text-anchor="middle" font-size="15">Node-RED</text><text x="485" y="188" text-anchor="middle" class="tm" font-size="12">checks each letter</text>
+  <path class="arrow" d="M380,165 L416,165"/>
+  <rect class="box-a" x="590" y="140" width="130" height="70" rx="10"/><text x="655" y="168" text-anchor="middle" font-size="15" font-weight="600">API</text><text x="655" y="188" text-anchor="middle" class="tm" font-size="12">the "brain"</text>
+  <path class="arrow" d="M550,165 L586,165"/>
+  <rect class="box" x="760" y="40" width="110" height="60" rx="10"/><text x="815" y="66" text-anchor="middle" font-size="15">Database</text><text x="815" y="86" text-anchor="middle" class="tm" font-size="12">the memory</text>
+  <path class="arrow" d="M705,140 L775,104"/>
+  <rect class="box" x="760" y="230" width="110" height="60" rx="10"/><text x="815" y="256" text-anchor="middle" font-size="15">Phone apps</text><text x="815" y="276" text-anchor="middle" class="tm" font-size="12">farmer · admin</text>
+  <path class="arrow" d="M705,210 L775,232"/>
+  <path class="arrow-back" d="M600,214 C 470,290 250,290 120,214"/>
+  <text x="360" y="304" text-anchor="middle" font-size="12.5" fill="var(--accent)">pump command (start / stop): goes back to the farm, safety-checked twice</text>
+</svg>
+</div>
+
+<table>
+  <tr><th>Piece</th><th>Simple explanation</th></tr>
+  <tr><td><strong>Mosquitto (MQTT)</strong></td><td>A post office for small messages. The Pi drops a letter ("pH = 6.1"), and whoever subscribed receives it.</td></tr>
+  <tr><td><strong>Node-RED</strong></td><td>A sorting desk. It opens every letter, throws away the malformed ones (and reports them), and forwards the good ones.</td></tr>
+  <tr><td><strong>API</strong></td><td>The brain. It stores readings, decides when to raise an alert, and checks whether a pump command is safe.</td></tr>
+  <tr><td><strong>IAM</strong></td><td>The front door with a guard: sign-up, login, and who is allowed to do what (farmer or administrator).</td></tr>
+  <tr><td><strong>PWA</strong></td><td>A web page that installs on a phone like an app. There is one for farmers and one for administrators.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>2. This week, step by step</h2>
+<p>A <strong>pull request (PR)</strong> is a proposal of changes that a teammate reviews before it joins the main version of the project (it gets <em>merged</em>). Five PRs were opened this week.</p>
+
+<ul class="timeline">
+  <li><span class="when">Sun 9 Nov · PR #1 (Leith), merged</span><br>
+    The <strong>message rules</strong> (the "MQTT contract": exactly what each letter must contain), a <strong>simulator</strong> that pretends to be the Raspberry Pi so everyone can work without hardware, and the first <strong>Node-RED sorting desk</strong>.</li>
+  <li><span class="when">Sun 9 Nov · PR #2 (Aziz), merged</span><br>
+    Fixed the two phone apps, whose names were swapped (the farmer app said "Admin" and the other way round).</li>
+  <li><span class="when">Sun 9 Nov · PR #3 (Aziz), merged</span><br>
+    A <strong>device registry</strong>: the administrator can add, rename or disable a Raspberry Pi.</li>
+  <li><span class="when">Mon 10 Nov · PR #4 (Aziz), merged on 15 Nov</span><br>
+    Account management, with a safety rule: the <strong>last administrator</strong> can never be deleted or disabled, so nobody gets locked out.</li>
+  <li><span class="when">Sat 15 Nov · PR #5 (Amir), waiting for review</span><br>
+    The big one: the system now <em>does</em> things. Data is stored, alerts are raised, the pump is controlled safely, the Raspberry Pi program exists, and the apps show live data. It contains <strong>9 commits written on Saturday plus 1 today</strong>, explained in the next section.</li>
+  <li><span class="when">Sun 16 Nov · today</span><br>
+    Raspberry Pi and camera connected to the system for the first time; first leaf-detection model trained on the laptop's graphics card.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>3. What PR #5 adds, explained simply</h2>
+<p>PR #5 is about 10 000 lines spread over 143 files. It was built in <strong>checkpoints</strong>: each one is a separate, working step, so teammates can review them one at a time.</p>
+
+<table>
+  <tr><th>#</th><th>Commit</th><th>In one sentence</th></tr>
+  <tr><td>1</td><td>API: storage, alerts, pump</td><td>The brain now remembers every reading, raises alerts and controls the pump with safety checks.</td></tr>
+  <tr><td>2</td><td>Fixes found by testing for real</td><td>Three bugs found by running the whole system, including one in the existing device code.</td></tr>
+  <tr><td>3</td><td>Node-RED → API, smoke test</td><td>The sorting desk now hands letters to the brain, and retries if the brain is restarting. Plus a script that tests the whole chain in one command.</td></tr>
+  <tr><td>4</td><td>Raspberry Pi program</td><td>The program that runs on the Pi: reads sensors, keeps a backup when the network is down, protects the pump, photographs leaves.</td></tr>
+  <tr><td>5</td><td>AI model pipeline</td><td>Scripts to teach a small AI to recognise sick leaves and shrink it to run on the Pi.</td></tr>
+  <tr><td>6</td><td>Phone apps</td><td>Real dashboards: live values, history chart, alerts, pump buttons, device list.</td></tr>
+  <tr><td>7</td><td>Documents, deployment, tests</td><td>The 6 UML diagrams for the design report, 24 user stories, server installation scripts, a Postman collection, automatic tests on GitHub.</td></tr>
+  <tr><td>8–10</td><td>Small fixes</td><td>Line endings for scripts, time zones in the tests (found by GitHub's automatic check), and the Pi's real user name.</td></tr>
+</table>
+
+<h3>3a. How an alert is born</h3>
+<div class="card">
+<svg class="diagram" viewBox="0 0 880 170" role="img" aria-label="A pH reading of 7.1 is compared with the allowed range 5.5 to 6.5, an alert is opened, the farmer acknowledges it, then resolves it with a note.">
+  <rect class="box" x="10" y="45" width="150" height="70" rx="10"/><text x="85" y="74" text-anchor="middle" font-size="14">Reading arrives</text><text x="85" y="96" text-anchor="middle" font-size="18" font-weight="650">pH 7.1</text>
+  <path class="arrow" d="M160,80 L196,80"/>
+  <rect class="box" x="200" y="45" width="160" height="70" rx="10"/><text x="280" y="74" text-anchor="middle" font-size="14">Compared with the</text><text x="280" y="94" text-anchor="middle" font-size="14">allowed range 5.5–6.5</text>
+  <path class="arrow" d="M360,80 L396,80"/>
+  <rect class="box-a" x="400" y="45" width="140" height="70" rx="10"/><text x="470" y="74" text-anchor="middle" font-size="14" font-weight="600">Alert opened</text><text x="470" y="94" text-anchor="middle" class="tm" font-size="12">farmer notified</text>
+  <path class="arrow" d="M540,80 L576,80"/>
+  <rect class="box" x="580" y="45" width="130" height="70" rx="10"/><text x="645" y="74" text-anchor="middle" font-size="14">Farmer clicks</text><text x="645" y="94" text-anchor="middle" font-size="14">"Acknowledge"</text>
+  <path class="arrow" d="M710,80 L736,80"/>
+  <rect class="box" x="740" y="45" width="130" height="70" rx="10"/><text x="805" y="70" text-anchor="middle" font-size="14">"Resolve" with</text><text x="805" y="90" text-anchor="middle" font-size="14">a note on what</text><text x="805" y="108" text-anchor="middle" font-size="14">was done</text>
+  <text x="440" y="150" text-anchor="middle" class="t2" font-size="12.5">If the problem repeats before it is resolved, the same alert is reused: the farmer gets one alert, not one every 5 seconds.</text>
+</svg>
+</div>
+<p>Six kinds of alerts exist: a value out of range, a sensor that went silent, the Pi offline, a pump failure, a broken message, and a leaf that looks sick on camera.</p>
+
+<h3>3b. The pump is protected by two locks</h3>
+<p>Turning on a pump with no water can burn it out. So a start command must pass <strong>two independent checks</strong>, the way a bank asks for a card <em>and</em> a code:</p>
+<div class="card">
+<svg class="diagram" viewBox="0 0 880 190" role="img" aria-label="A farmer's request goes through a confirmation, the server's safety check, an audit record, then the Raspberry Pi's own safety check before reaching the pump.">
+  <rect class="box" x="10" y="55" width="120" height="60" rx="10"/><text x="70" y="82" text-anchor="middle" font-size="14">Farmer taps</text><text x="70" y="100" text-anchor="middle" font-size="14">"Start 2 min"</text>
+  <path class="arrow" d="M130,85 L166,85"/>
+  <rect class="box" x="170" y="55" width="120" height="60" rx="10"/><text x="230" y="82" text-anchor="middle" font-size="14">"Are you</text><text x="230" y="100" text-anchor="middle" font-size="14">sure?"</text>
+  <path class="arrow" d="M290,85 L326,85"/>
+  <rect class="box-a" x="330" y="45" width="150" height="80" rx="10"/><text x="405" y="72" text-anchor="middle" font-size="14" font-weight="600">Lock 1: server</text><text x="405" y="92" text-anchor="middle" class="tm" font-size="12">online? enough water?</text><text x="405" y="108" text-anchor="middle" class="tm" font-size="12">not too long? no fault?</text>
+  <path class="arrow" d="M480,85 L516,85"/>
+  <rect class="box" x="520" y="55" width="110" height="60" rx="10"/><text x="575" y="82" text-anchor="middle" font-size="14">Written in</text><text x="575" y="100" text-anchor="middle" font-size="14">the logbook</text>
+  <path class="arrow" d="M630,85 L666,85"/>
+  <rect class="box-a" x="670" y="45" width="200" height="80" rx="10"/><text x="770" y="72" text-anchor="middle" font-size="14" font-weight="600">Lock 2: Raspberry Pi</text><text x="770" y="92" text-anchor="middle" class="tm" font-size="12">checks again, even offline;</text><text x="770" y="108" text-anchor="middle" class="tm" font-size="12">stops the pump by itself</text>
+  <text x="440" y="165" text-anchor="middle" class="t2" font-size="12.5">Refused requests are written in the logbook too, with the reason (e.g. "water level too low"). Neither a bug nor the future AI assistant can skip a lock.</text>
+</svg>
+</div>
+
+<h3>3c. Nothing is lost when the network drops</h3>
+<p>The Pi writes every reading into a small notebook (a database file on its memory card) <em>before</em> sending it. A line is crossed out only once the server confirms it arrived. If the Wi-Fi drops, the notebook simply fills up, and it empties when the connection returns. Late readings are labelled "buffered", so the app shows them in the history and never as the current value.</p>
+
+<div class="tiles">
+  <div class="tile"><div class="num ok">30 / 30</div><div class="lbl">readings kept while the server (API) was switched off for 36 s</div></div>
+  <div class="tile"><div class="num ok">34 / 34</div><div class="lbl">readings kept while the post office (broker) was off for 25 s</div></div>
+  <div class="tile"><div class="num">8 → 0</div><div class="lbl">readings lost before and after a broker setting was fixed</div></div>
+</div>
+
+<h3>3d. How much is tested</h3>
+<p>An <strong>automatic test</strong> is a small program that checks one behaviour, for example "a pump start with low water is refused", and shouts if it breaks. They run on every change, on GitHub too.</p>
+<div class="card">
+  <div id="chart-tests"></div>
+  <details><summary>Show as a table</summary>
+    <table><tr><th>Part</th><th class="n">Tests</th></tr>
+      <tr><td>API (server brain)</td><td class="n">41</td></tr><tr><td>Raspberry Pi program</td><td class="n">37</td></tr>
+      <tr><td>Node-RED + phone apps</td><td class="n">26</td></tr><tr><td>Simulator</td><td class="n">21</td></tr></table>
+  </details>
+</div>
+<p>On top of that, one <strong>end-to-end test</strong> plays the whole demo in a single command: log in, see live values, get an alert, resolve it, start the pump, get refused for an unsafe request. It passes.</p>
+
+<div class="callout"><strong>Bugs that testing caught before anyone else did:</strong> adding a device twice crashed with an error instead of saying "already exists"; the broker forgot messages when restarted; the image model gave upside-down answers once shrunk for the Pi; and the clock's time zone made a test fail on GitHub's computers. All fixed.</div>
+
+<!-- ============================================================ -->
+<h2>4. Today: the real hardware joins</h2>
+
+<h3>4a. Connecting the Raspberry Pi</h3>
+<ul>
+  <li>Plugging the cable straight into the laptop showed <em>"Réseau non identifié"</em>. That's normal: with nobody handing out addresses, the Pi got no usable address. <strong>Fix:</strong> connect it to the Flybox router, which gave it an address (Wi-Fi <code>192.168.1.129</code>).</li>
+  <li>The camera wasn't detected at first. After re-seating the ribbon cable, it was recognised as a <strong>Camera Module v2.1</strong> (Sony IMX219 sensor, 8 megapixels).</li>
+  <li>Docker (which runs the servers) was started on the laptop, and the Pi was registered as <code>basil-pi-01</code>.</li>
+  <li><strong>Result:</strong> the Pi connected and sent its first 60 readings and its first camera check within a minute. The sensors are still <em>simulated</em> (the real probes haven't arrived), and the data is honestly marked "not calibrated".</li>
+</ul>
+
+<h3>4b. Teaching an AI to spot sick leaves</h3>
+<p>We downloaded a public set of <strong>58 basil photos</strong> where people drew a box around each leaf and named its condition. We trained <strong>YOLO26n</strong>, a small, fast "find the objects" model, on the laptop's graphics card. It took about 2 minutes.</p>
+
+<div class="card">
+  <h3 style="margin-top:0">How many examples the AI had to learn from</h3>
+  <p class="muted">Leaves boxed in the 46 training photos. The model learns a class well only if it sees many examples of it.</p>
+  <div id="chart-classes"></div>
+  <details><summary>Show as a table</summary>
+    <table><tr><th>Leaf condition</th><th class="n">Leaves</th></tr>
+      <tr><td>healthy</td><td class="n">526</td></tr><tr><td>dark</td><td class="n">307</td></tr><tr><td>yellow</td><td class="n">128</td></tr><tr><td>wilt</td><td class="n">28</td></tr></table>
+  </details>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">How well it recognises each condition on photos it never saw</h3>
+  <p class="muted">Score from 0 (never right) to 1 (always right), measured on the 6 held-back test photos. "With augmentation" means the training photos were multiplied (rotated, re-lit, slightly blurred), with extra copies of the rare classes.</p>
+  <div class="legend"><span><i style="background:var(--series-1)"></i>Original photos</span><span><i style="background:var(--series-2)"></i>With augmentation</span></div>
+  <div id="chart-score"></div>
+  <details><summary>Show as a table</summary>
+    <table><tr><th>Condition</th><th class="n">Original</th><th class="n">With augmentation</th></tr>
+      <tr><td>healthy</td><td class="n">0.42</td><td class="n">0.45</td></tr><tr><td>dark</td><td class="n">0.43</td><td class="n">0.37</td></tr>
+      <tr><td>wilt</td><td class="n">0.32</td><td class="n">0.22</td></tr><tr><td>yellow</td><td class="n">0.04</td><td class="n">0.09</td></tr>
+      <tr><td><strong>all</strong></td><td class="n"><strong>0.30</strong></td><td class="n"><strong>0.28</strong></td></tr></table>
+  </details>
+</div>
+
+<div class="callout"><strong>What this means:</strong> the model already <em>finds</em> leaves well (it missed only 10 of 94), but it mixes up <strong>yellow</strong> leaves with <strong>healthy</strong> ones. Multiplying the same 46 photos didn't help, because the copies show the same single plant in the same room. The cure is new information: <strong>our own photos</strong>, taken by our Pi camera, of our plants.</div>
+
+<!-- ============================================================ -->
+<h2>5. What comes next</h2>
+<div class="card">
+<svg class="diagram" viewBox="0 0 880 230" role="img" aria-label="Roadmap: now, next and later steps.">
+  <text x="140" y="26" text-anchor="middle" font-size="15" font-weight="650">NOW (this week)</text>
+  <text x="440" y="26" text-anchor="middle" font-size="15" font-weight="650">NEXT</text>
+  <text x="740" y="26" text-anchor="middle" font-size="15" font-weight="650">LATER</text>
+  <g font-size="13">
+    <rect class="box-a" x="20" y="40" width="240" height="40" rx="8"/><text x="140" y="65" text-anchor="middle">Teammates review &amp; merge PR #5</text>
+    <rect class="box-a" x="20" y="90" width="240" height="40" rx="8"/><text x="140" y="115" text-anchor="middle">Aim the camera, fix the lighting</text>
+    <rect class="box-a" x="20" y="140" width="240" height="40" rx="8"/><text x="140" y="165" text-anchor="middle">Take and label our own photos</text>
+    <rect class="box" x="320" y="40" width="240" height="40" rx="8"/><text x="440" y="65" text-anchor="middle">Run the AI model on the Pi</text>
+    <rect class="box" x="320" y="90" width="240" height="40" rx="8"/><text x="440" y="115" text-anchor="middle">Retrain with our photos</text>
+    <rect class="box" x="320" y="140" width="240" height="40" rx="8"/><text x="440" y="165" text-anchor="middle">Plug in the real sensors + pump</text>
+    <rect class="box" x="620" y="40" width="240" height="40" rx="8"/><text x="740" y="65" text-anchor="middle">AI assistant that answers questions</text>
+    <rect class="box" x="620" y="90" width="240" height="40" rx="8"/><text x="740" y="115" text-anchor="middle">Reports (water use, uptime)</text>
+    <rect class="box" x="620" y="140" width="240" height="40" rx="8"/><text x="740" y="165" text-anchor="middle">Put it online, secured, for the demo</text>
+  </g>
+  <path class="arrow" d="M262,110 L316,110"/><path class="arrow" d="M562,110 L616,110"/>
+  <text x="440" y="214" text-anchor="middle" class="t2" font-size="12.5">Each box is one or more user stories in docs/user-stories.md.</text>
+</svg>
+</div>
+
+<table>
+  <tr><th>Step</th><th>Why it matters</th><th>Who</th><th>Status</th></tr>
+  <tr><td>Review PR #5, click through both apps in a browser</td><td>The apps were tested by code, not yet by a human</td><td>Leith, Aziz</td><td class="wip">to do</td></tr>
+  <tr><td>Aim the camera at the plants (30–60 cm), steady light</td><td>The first photo was only 8 % green: the plant barely fills the picture</td><td>Amir</td><td class="wip">to do</td></tr>
+  <tr><td>Collect 50+ photos and label them in Roboflow</td><td>The single biggest improvement for the AI, especially for yellow and wilting leaves</td><td>team</td><td class="wip">to do</td></tr>
+  <tr><td>"Detection adapter": run YOLO on the Pi</td><td>The Pi currently expects a simpler model type; it must learn to read YOLO's boxes</td><td>Amir + Claude</td><td class="no">next</td></tr>
+  <tr><td>Wire the real pH, EC, temperature, water-level sensors and the relay</td><td>The code is written; it switches from "simulated" to "real" with one line per sensor</td><td>Leith</td><td class="no">when delivered</td></tr>
+  <tr><td>AI assistant (RAG + MCP)</td><td>Answers cultivation questions with sources, and can ask for pump actions, through the same two locks</td><td>team</td><td class="no">later</td></tr>
+</table>
+
+<div class="callout"><strong>Decisions the team still has to take:</strong> check the alert ranges (pH 5.5–6.5, etc.) against a real basil guide (they are marked "not verified"); agree on the pump limits (15 min maximum, 20 % minimum water); keep 4 leaf classes or start with 2 (healthy / stressed); and write Java 25 instead of 21 in the report, to match the code.</div>
+
+<!-- ============================================================ -->
+<h2>6. Small glossary</h2>
+<table>
+  <tr><td><strong>Commit</strong></td><td>One saved step of work, with a message describing it.</td></tr>
+  <tr><td><strong>Pull request / merge</strong></td><td>A proposal of commits, reviewed by a teammate, then added to the main version.</td></tr>
+  <tr><td><strong>Simulated sensor</strong></td><td>A program that invents realistic values, so we can build everything before the real sensor arrives.</td></tr>
+  <tr><td><strong>Calibrated</strong></td><td>A sensor adjusted against a known reference (for example a pH 7 liquid), so its values can be trusted.</td></tr>
+  <tr><td><strong>Docker</strong></td><td>Runs each server in its own sealed box, so the whole system starts with one command on any computer.</td></tr>
+  <tr><td><strong>Training / test photos</strong></td><td>The AI learns from the training photos; the test photos are kept hidden until the end, to measure it honestly.</td></tr>
+  <tr><td><strong>Augmentation</strong></td><td>Making extra training photos by rotating, re-lighting or blurring the existing ones.</td></tr>
+  <tr><td><strong>Review required</strong></td><td>What the app shows when the AI is unsure. It never presents a guess as a diagnosis.</td></tr>
+</table>
+
+<p class="muted" style="margin-top:32px">Sources: Git history of KarrayAziz/Basilcare-AI (PRs #1 to #5), test runs and live tests of 15–16 November 2026, YOLO26n training runs in <code>model/runs/</code>. Dataset: "basil-health-rev2" (Roboflow Universe, CC BY 4.0).</p>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+// Small dependency-free horizontal bar charts with hover tooltips.
+const tip = document.getElementById("tip");
+function showTip(event, html) {
+  tip.innerHTML = html;
+  tip.style.opacity = 1;
+  const x = Math.min(event.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + "px";
+  tip.style.top = (event.clientY + 14) + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+const NS = "http://www.w3.org/2000/svg";
+function el(name, attrs, text) {
+  const node = document.createElementNS(NS, name);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function roundedBar(x, y, w, h, cls) {
+  // square at the baseline (left), 4px rounded at the data end (right)
+  const r = Math.min(4, w / 2, h / 2);
+  const d = `M${x},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} H${x} Z`;
+  return el("path", { d, class: cls });
+}
+/**
+ * rows: [{label, values:[...]}]; series: [{name, cls}]; max: axis maximum; fmt: value formatter
+ */
+function barChart(id, rows, series, max, fmt, ticks, ariaLabel) {
+  const width = 860, labelW = 190, right = 60, barH = 18, gap = 2, groupGap = 18;
+  const groupH = series.length * barH + (series.length - 1) * gap;
+  const top = 8, axisH = 26;
+  const height = top + rows.length * (groupH + groupGap) - groupGap + axisH;
+  const plotW = width - labelW - right;
+  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart", role: "img", "aria-label": ariaLabel });
+  const plotBottom = height - axisH + 4;
+  for (const t of ticks) {
+    const x = labelW + (t / max) * plotW;
+    svg.append(el("line", { x1: x, x2: x, y1: top - 4, y2: plotBottom, class: "gridline" }));
+    svg.append(el("text", { x, y: height - 6, "text-anchor": "middle", "font-size": 12, class: "tm" }, fmt(t)));
+  }
+  rows.forEach((row, i) => {
+    const gy = top + i * (groupH + groupGap);
+    svg.append(el("text", { x: labelW - 12, y: gy + groupH / 2 + 5, "text-anchor": "end", "font-size": 14 }, row.label));
+    row.values.forEach((v, s) => {
+      const y = gy + s * (barH + gap);
+      const w = Math.max(2, (v / max) * plotW);
+      svg.append(roundedBar(labelW, y, w, barH, series[s].cls));
+      svg.append(el("text", { x: labelW + w + 6, y: y + barH / 2 + 4.5, "font-size": 12.5, class: "t2" }, fmt(v)));
+      const hit = el("rect", { x: labelW, y: y - 1, width: plotW + right, height: barH + 2, class: "hit" });
+      const name = series.length > 1 ? `${series[s].name}: ` : "";
+      hit.addEventListener("mousemove", (e) => showTip(e, `<strong>${row.label}</strong><br>${name}${fmt(v)}`));
+      hit.addEventListener("mouseleave", hideTip);
+      svg.append(hit);
+    });
+  });
+  document.getElementById(id).append(svg);
+}
+
+barChart("chart-tests",
+  [{ label: "API (server brain)", values: [41] }, { label: "Raspberry Pi program", values: [37] },
+   { label: "Node-RED + apps", values: [26] }, { label: "Simulator", values: [21] }],
+  [{ name: "Tests", cls: "bar1" }], 50, (v) => String(v), [0, 10, 20, 30, 40, 50],
+  "Automatic tests per part: API 41, Raspberry Pi program 37, Node-RED and apps 26, simulator 21.");
+
+barChart("chart-classes",
+  [{ label: "healthy", values: [526] }, { label: "dark", values: [307] },
+   { label: "yellow", values: [128] }, { label: "wilt", values: [28] }],
+  [{ name: "Leaves", cls: "bar1" }], 600, (v) => String(v), [0, 100, 200, 300, 400, 500, 600],
+  "Training leaves per condition: healthy 526, dark 307, yellow 128, wilt 28.");
+
+barChart("chart-score",
+  [{ label: "healthy", values: [0.423, 0.448] }, { label: "dark", values: [0.430, 0.365] },
+   { label: "wilt", values: [0.321, 0.215] }, { label: "yellow", values: [0.043, 0.090] },
+   { label: "all conditions", values: [0.304, 0.280] }],
+  [{ name: "Original photos", cls: "bar1" }, { name: "With augmentation", cls: "bar2" }],
+  1, (v) => v.toFixed(2), [0, 0.25, 0.5, 0.75, 1],
+  "Test score per condition, original versus augmented: healthy 0.42 vs 0.45, dark 0.43 vs 0.37, wilt 0.32 vs 0.22, yellow 0.04 vs 0.09, all 0.30 vs 0.28.");
+</script>
+</body>
+</html>

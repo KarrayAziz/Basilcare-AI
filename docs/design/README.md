@@ -47,6 +47,6 @@ Each choice has a short decision record in [`../decisions/`](../decisions/).
 
 ## Still to design
 
-- `ai-service/`: RAG corpus and index, MCP server (tools call the API with the user's token, so the same roles and the same pump policy apply), LLMOps traces and evaluation set.
+- `iot/ai/service/`: RAG corpus and index, MCP server (tools call the API with the user's token, so the same roles and the same pump policy apply), LLMOps traces and evaluation set.
 - FR-09 reports: water consumption, uptime and alert frequency, computed with MongoDB aggregations.
 - Production deployment: TLS proxy, Mosquitto TLS + per-device logins + ACL (contract §9), Web Push notifications.

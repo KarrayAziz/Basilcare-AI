@@ -17,12 +17,12 @@ How to use it:
 
 0. Tools and starting point
 1. Create the repository
-2. `api/`: first a running "hello" API
-3. `iam/`: identity service (the big one)
-4. `api/`: protect endpoints with the IAM's tokens
+2. `middleware/api/`: first a running "hello" API
+3. `middleware/iam/`: identity service (the big one)
+4. `middleware/api/`: protect endpoints with the IAM's tokens
 5. Run everything together (Docker: MongoDB + WildFly + Mosquitto)
-6. `pwa-farmer/` and `pwa-admin/`
-7. `simulator/` and the MQTT contract
+6. `frontends/frontoffice/` and `frontends/backoffice/`
+7. `iot/simulator/` and the MQTT contract
 8. The other folders (`edge`, `ai-service`, `nodered`, `model`, `postman`, `deploy`, `docs`)
 9. Phase 0 checklist
 
@@ -51,7 +51,7 @@ mv BasilCare BasilCare-reference
 mkdir BasilCare && cd BasilCare
 ```
 
-Some parts of `BasilCare-reference` were written for this project and never came from SmartHydro: `docs/` (scope, diagrams, MQTT contract, user stories), `simulator/`, `deploy/`, `nodered/`, `postman/`. You may reuse or rewrite those. Everything in this guide is about building the parts yourself.
+Some parts of `BasilCare-reference` were written for this project and never came from SmartHydro: `docs/` (scope, diagrams, MQTT contract, user stories), `iot/simulator/`, `deploy/`, `iot/node-red/`, `postman/`. You may reuse or rewrite those. Everything in this guide is about building the parts yourself.
 
 ---
 
@@ -61,13 +61,13 @@ Some parts of `BasilCare-reference` were written for this project and never came
 
 ```bash
 git init
-mkdir -p iam api edge simulator nodered ai-service pwa-farmer pwa-admin model deploy postman docs
+mkdir -p middleware/{core,api,iam} frontends/{frontoffice,backoffice} iot/{edge,simulator,node-red,ai/model,ai/service} deploy postman docs
 ```
 
 Git does not track empty folders, so each one needs at least one file. A README in each is the useful choice:
 
 ```bash
-for d in iam api edge simulator nodered ai-service pwa-farmer pwa-admin model deploy postman docs; do
+for d in middleware/core middleware/api middleware/iam frontends/frontoffice frontends/backoffice iot/edge iot/simulator iot/node-red iot/ai/model iot/ai/service deploy postman docs; do
   echo "# $d" > $d/README.md
 done
 ```
@@ -116,16 +116,16 @@ Add your teammates under *Settings → Collaborators*.
 
 ---
 
-## 2. `api/`: first a running "hello" API
+## 2. `middleware/api/`: first a running "hello" API
 
 Start with the smallest thing that builds and runs, so you learn the Maven/WildFly cycle before writing security code.
 
 ### 2.1 Folder structure
 
 ```bash
-mkdir -p api/src/main/java/tn/supcom/basilcare/boundaries
-mkdir -p api/src/main/resources/META-INF
-mkdir -p api/src/main/webapp/WEB-INF
+mkdir -p middleware/api/src/main/java/tn/supcom/basilcare/boundaries
+mkdir -p middleware/api/src/main/resources/META-INF
+mkdir -p middleware/api/src/main/webapp/WEB-INF
 ```
 
 Why these names:
@@ -140,7 +140,7 @@ Why these names:
 
 > **Study in SmartHydro:** `api/pom.xml`. Notice `groupId`, `artifactId`, `packaging war`, and the `jakartaee-api` dependency. Two things to do better: the API jar must be `provided` (the server already has it; otherwise it's bundled into your WAR), and the scope requires **Jakarta EE 11**, not 10.
 
-**File:** `api/pom.xml`
+**File:** `middleware/api/pom.xml`
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -197,7 +197,7 @@ Why these names:
 
 > **Study in SmartHydro:** `APIApplication.java`. An empty class with `@ApplicationPath` is all JAX-RS needs.
 
-**File:** `api/src/main/java/tn/supcom/basilcare/ApiApplication.java`
+**File:** `middleware/api/src/main/java/tn/supcom/basilcare/ApiApplication.java`
 ```java
 package tn.supcom.basilcare;
 
@@ -215,7 +215,7 @@ public class ApiApplication extends Application {
 
 ### 2.4 First endpoint
 
-**File:** `api/src/main/java/tn/supcom/basilcare/boundaries/HealthResource.java`
+**File:** `middleware/api/src/main/java/tn/supcom/basilcare/boundaries/HealthResource.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -246,7 +246,7 @@ public class HealthResource {
 
 ### 2.5 `beans.xml` and configuration
 
-**File:** `api/src/main/webapp/WEB-INF/beans.xml`
+**File:** `middleware/api/src/main/webapp/WEB-INF/beans.xml`
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Enables CDI (@Inject) for classes that carry a bean annotation such as @ApplicationScoped -->
@@ -257,14 +257,14 @@ public class HealthResource {
 </beans>
 ```
 
-Create an empty `api/src/main/resources/META-INF/microprofile-config.properties` for now (filled in step 4).
+Create an empty `middleware/api/src/main/resources/META-INF/microprofile-config.properties` for now (filled in step 4).
 
-`api/.gitignore`: one line, `target/`.
+`middleware/api/.gitignore`: one line, `target/`.
 
 ### 2.6 Build
 
 ```bash
-cd api
+cd middleware/api
 mvn package
 ls target/api.war
 cd ..
@@ -278,7 +278,7 @@ git add api && git commit -m "api: Maven skeleton with /health endpoint"
 
 ---
 
-## 3. `iam/`: identity service
+## 3. `middleware/iam/`: identity service
 
 The IAM lets people **sign up**, **activate** their account with an e-mailed code, **sign in**, and gives the PWA a signed **access token (JWT)**. The API will trust that token without ever seeing passwords.
 
@@ -306,9 +306,9 @@ This is **OAuth 2.0 authorization code + PKCE** (RFC 7636): the standard for bro
 ### 3.1 Folder structure
 
 ```bash
-B=iam/src/main/java/tn/supcom/basilcare
+B=middleware/iam/src/main/java/tn/supcom/basilcare
 mkdir -p $B/{boundaries,entities,repositories,security,services}
-mkdir -p iam/src/main/resources/META-INF iam/src/main/webapp/WEB-INF
+mkdir -p middleware/iam/src/main/resources/META-INF middleware/iam/src/main/webapp/WEB-INF
 ```
 
 | Package | Role |
@@ -325,7 +325,7 @@ Each layer only calls the layer below it: boundaries → services → repositori
 
 > **Study in SmartHydro:** `iam/pom.xml`. It adds Argon2 (password hashing), JNoSQL MongoDB (database), Jakarta Mail and commons-lang3. We keep Argon2 and JNoSQL. We drop the separate mail dependency (WildFly provides Jakarta Mail) and commons-lang3 (unused once you write it yourself).
 
-**File:** `iam/pom.xml`
+**File:** `middleware/iam/pom.xml`
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -384,13 +384,13 @@ Each layer only calls the layer below it: boundaries → services → repositori
 </project>
 ```
 
-Copy `api/src/main/webapp/WEB-INF/beans.xml` to `iam/src/main/webapp/WEB-INF/beans.xml` (same content) and add `iam/.gitignore` with `target/`.
+Copy `middleware/api/src/main/webapp/WEB-INF/beans.xml` to `middleware/iam/src/main/webapp/WEB-INF/beans.xml` (same content) and add `middleware/iam/.gitignore` with `target/`.
 
 ### 3.3 Configuration
 
 > **Study in SmartHydro:** `iam/.../microprofile-config.properties`. Two problems to avoid: a **real SMTP password is committed** in the file, and keys are mixed with no explanation. Here, secrets are never in the file; they come from environment variables (MicroProfile Config: `smtp.password` is overridden by `SMTP_PASSWORD`).
 
-**File:** `iam/src/main/resources/META-INF/microprofile-config.properties`
+**File:** `middleware/iam/src/main/resources/META-INF/microprofile-config.properties`
 ```properties
 # Development defaults. Any key can be overridden by an environment variable:
 # dots -> underscores, upper case. Example: jnosql.mongodb.host -> JNOSQL_MONGODB_HOST
@@ -427,7 +427,7 @@ cors.allowed.origins=http://localhost:5500,http://localhost:5501
 
 > **Study in SmartHydro:** `entities/Identity.java` and `entities/Tenant.java`. Notice `@Entity`, `@Column`, `@Id` from `jakarta.nosql`. Weaknesses to fix: `Identity.id` is never set by the code; `Tenant` has no `@Id` at all; roles are a bit mask (`Long`) that needs a 60-line enum to decode. Here the **username is the id**, the **client id is the tenant id**, and the role is a plain string.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/entities/Role.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/entities/Role.java`
 ```java
 package tn.supcom.basilcare.entities;
 
@@ -448,7 +448,7 @@ public enum Role {
 }
 ```
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/entities/Identity.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/entities/Identity.java`
 ```java
 package tn.supcom.basilcare.entities;
 
@@ -510,7 +510,7 @@ public class Identity {
 }
 ```
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/entities/Tenant.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/entities/Tenant.java`
 ```java
 package tn.supcom.basilcare.entities;
 
@@ -553,7 +553,7 @@ public class Tenant {
 
 > **Study in SmartHydro:** `repositories/IdentityRepository.java`. A Jakarta Data repository is **just an interface**: JNoSQL writes the implementation from the method names (`findByEmail` → query on `email`). `CrudRepository` already gives `save`, `findById`, `delete`.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/repositories/IdentityRepository.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/repositories/IdentityRepository.java`
 ```java
 package tn.supcom.basilcare.repositories;
 
@@ -571,7 +571,7 @@ public interface IdentityRepository extends CrudRepository<Identity, String> {
 }
 ```
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/repositories/TenantRepository.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/repositories/TenantRepository.java`
 ```java
 package tn.supcom.basilcare.repositories;
 
@@ -588,7 +588,7 @@ public interface TenantRepository extends CrudRepository<Tenant, String> {
 
 > **Study in SmartHydro:** `security/Argon2Utils.java`. Good ideas to keep: Argon2**id**, and wiping the password array after use. Differences here: settings are injected with `@ConfigProperty` instead of static fields read at class-load time, and the cost uses OWASP-recommended values.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/security/PasswordHasher.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/security/PasswordHasher.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -641,7 +641,7 @@ public class PasswordHasher {
 
 > **Study in SmartHydro:** `security/AuthorizationCode.java`. It packs everything into the code itself and encrypts the challenge with ChaCha20-Poly1305: clever, but 150 lines, the **expiry is never checked**, and the same code can be **used twice**. Simpler and stricter: keep codes **on the server** in a map, remove them on first use, check expiry.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/security/AuthorizationCodeStore.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/security/AuthorizationCodeStore.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -689,7 +689,7 @@ public class AuthorizationCodeStore {
 }
 ```
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/security/Pkce.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/security/Pkce.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -725,7 +725,7 @@ public final class Pkce {
 
 A JWT is three base64url parts joined by dots: `header.payload.signature`, where the signature covers `header.payload`.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/security/JwtIssuer.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/security/JwtIssuer.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -829,7 +829,7 @@ public class JwtIssuer {
 
 > **Study in SmartHydro:** `services/IdentityServices.java` and `services/EmailService.java`. Fixes: activation codes were kept in a `HashMap` in memory (lost on restart) and never tied to the user, and login never checked that the account was activated. Here the code is **stored on the Identity**, and in development e-mails are **printed to the log** so you can test without a mail account.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/services/Mailer.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/services/Mailer.java`
 ```java
 package tn.supcom.basilcare.services;
 
@@ -905,7 +905,7 @@ public class Mailer {
 }
 ```
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/services/RegistrationService.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/services/RegistrationService.java`
 ```java
 package tn.supcom.basilcare.services;
 
@@ -988,7 +988,7 @@ public class RegistrationService {
 
 > **Study in SmartHydro:** SmartHydro has no code that creates tenants or the first admin; they had to be inserted into MongoDB by hand. The class below does it at start-up, so a fresh database just works.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/services/StartupData.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/services/StartupData.java`
 ```java
 package tn.supcom.basilcare.services;
 
@@ -1067,7 +1067,7 @@ public class StartupData {
 
 ### 3.10 Boundaries (HTTP endpoints)
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/IamApplication.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/IamApplication.java`
 ```java
 package tn.supcom.basilcare;
 
@@ -1082,7 +1082,7 @@ public class IamApplication extends Application {
 
 A small helper to return HTML pages and error pages:
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/boundaries/Pages.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/boundaries/Pages.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1112,7 +1112,7 @@ final class Pages {
 
 > **Study in SmartHydro:** `bounadaries/OAuthAuthorizationEndpoint.java`. It validates the request in `authorize`, then keeps the request in a **cookie** for the login step. Here the login page simply re-posts the same query string, and `login` **validates everything again**: no state to store, and tampering gains nothing. Added checks: the account must be **active**, and the user's role must be **allowed for that app**.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/boundaries/AuthorizationEndpoint.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/boundaries/AuthorizationEndpoint.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1233,7 +1233,7 @@ public class AuthorizationEndpoint {
 
 > **Study in SmartHydro:** `bounadaries/OAuthTokenEndpoint.java`. Fixes: a failed PKCE check led to `assert decoded != null` (asserts are off in production, so it crashed later); `client_id` and `redirect_uri` were not compared with the code's; the refresh-token branch reads `"tenant_id"` while tokens contain `"tenant-id"`, so it never worked. Refresh tokens are left out here (users sign in again after an hour); add them later as an exercise.
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/boundaries/TokenEndpoint.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/boundaries/TokenEndpoint.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1316,7 +1316,7 @@ public class TokenEndpoint {
 }
 ```
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/boundaries/JwkEndpoint.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/boundaries/JwkEndpoint.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1345,7 +1345,7 @@ public class JwkEndpoint {
 
 > **Study in SmartHydro:** `bounadaries/IdentityRegistration.java` (sign-up form, register, activate).
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/boundaries/RegistrationEndpoint.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/boundaries/RegistrationEndpoint.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1415,7 +1415,7 @@ public class RegistrationEndpoint {
 
 The PWA runs on `http://localhost:5500` and calls the IAM on `http://localhost:8080`: two different **origins**. Browsers block such JavaScript calls unless the server says the origin is allowed. (SmartHydro avoided this by serving everything from sub-domains of one host behind the same server; here it is explicit.)
 
-**File:** `iam/src/main/java/tn/supcom/basilcare/boundaries/CorsFilter.java`
+**File:** `middleware/iam/src/main/java/tn/supcom/basilcare/boundaries/CorsFilter.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1449,13 +1449,13 @@ public class CorsFilter implements ContainerResponseFilter {
 }
 ```
 
-The API needs the same class in step 4 (`api/.../boundaries/CorsFilter.java`, same code).
+The API needs the same class in step 4 (`middleware/api/.../boundaries/CorsFilter.java`, same code).
 
 ### 3.12 HTML pages
 
 > **Study in SmartHydro:** `iam/src/main/resources/login.html` (about 280 lines of styling). Write your own small pages first; style them later. The key trick in `login.html`: the form's `action` keeps the **query string** of the page, so the OAuth parameters travel to `POST /iam/login`.
 
-**File:** `iam/src/main/resources/login.html`
+**File:** `middleware/iam/src/main/resources/login.html`
 ```html
 <!doctype html>
 <html lang="en">
@@ -1485,7 +1485,7 @@ The API needs the same class in step 4 (`api/.../boundaries/CorsFilter.java`, sa
 </html>
 ```
 
-**File:** `iam/src/main/resources/signup.html`
+**File:** `middleware/iam/src/main/resources/signup.html`
 ```html
 <!doctype html>
 <html lang="en">
@@ -1512,7 +1512,7 @@ The API needs the same class in step 4 (`api/.../boundaries/CorsFilter.java`, sa
 </html>
 ```
 
-**File:** `iam/src/main/resources/activate.html`
+**File:** `middleware/iam/src/main/resources/activate.html`
 ```html
 <!doctype html>
 <html lang="en">
@@ -1540,7 +1540,7 @@ The API needs the same class in step 4 (`api/.../boundaries/CorsFilter.java`, sa
 </html>
 ```
 
-**File:** `iam/src/main/resources/activated.html`
+**File:** `middleware/iam/src/main/resources/activated.html`
 ```html
 <!doctype html>
 <html lang="en">
@@ -1558,26 +1558,26 @@ The API needs the same class in step 4 (`api/.../boundaries/CorsFilter.java`, sa
 ### 3.13 Build
 
 ```bash
-cd iam && mvn package && cd ..
+mvn --file middleware/iam/pom.xml package
 ```
 
 Read every compiler error carefully: it gives the file and line. Typical first mistakes: a missing `import`, a package line that does not match the folder, a typo in a getter name.
 
 ```bash
-git add iam && git commit -m "iam: OAuth 2.0 authorization code + PKCE, registration, JWT signing"
+git add middleware/iam && git commit -m "iam: OAuth 2.0 authorization code + PKCE, registration, JWT signing"
 ```
 
 ---
 
-## 4. `api/`: protect endpoints with the IAM's tokens
+## 4. `middleware/api/`: protect endpoints with the IAM's tokens
 
 > **Study in SmartHydro:** `api/.../security/` (5 files). The idea: a `@Secured` annotation marks protected endpoints; a **filter** runs before them, verifies the JWT with the IAM's public key, and checks `@RolesAllowed`. SmartHydro splits this into two filters, looks the verifier up through JNDI, re-downloads the key on **every request**, and rebuilds the key with manual byte reversal. Here: one filter, CDI injection, keys **cached** by `kid`, and the key rebuilt with a fixed 12-byte X.509 prefix.
 
 ```bash
-mkdir -p api/src/main/java/tn/supcom/basilcare/security
+mkdir -p middleware/api/src/main/java/tn/supcom/basilcare/security
 ```
 
-**File:** `api/src/main/resources/META-INF/microprofile-config.properties`
+**File:** `middleware/api/src/main/resources/META-INF/microprofile-config.properties`
 ```properties
 # Must match the IAM's jwt.issuer
 jwt.issuer=urn:basilcare:iam
@@ -1586,7 +1586,7 @@ jwt.jwks.url=http://localhost:8080/iam/jwk
 cors.allowed.origins=http://localhost:5500,http://localhost:5501
 ```
 
-**File:** `api/src/main/java/tn/supcom/basilcare/security/Secured.java`
+**File:** `middleware/api/src/main/java/tn/supcom/basilcare/security/Secured.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -1608,7 +1608,7 @@ public @interface Secured {
 }
 ```
 
-**File:** `api/src/main/java/tn/supcom/basilcare/security/JwtVerifier.java`
+**File:** `middleware/api/src/main/java/tn/supcom/basilcare/security/JwtVerifier.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -1721,7 +1721,7 @@ public class JwtVerifier {
 }
 ```
 
-**File:** `api/src/main/java/tn/supcom/basilcare/security/SecurityFilter.java`
+**File:** `middleware/api/src/main/java/tn/supcom/basilcare/security/SecurityFilter.java`
 ```java
 package tn.supcom.basilcare.security;
 
@@ -1821,7 +1821,7 @@ public class SecurityFilter implements ContainerRequestFilter {
 
 A protected endpoint to test the whole chain:
 
-**File:** `api/src/main/java/tn/supcom/basilcare/boundaries/MeResource.java`
+**File:** `middleware/api/src/main/java/tn/supcom/basilcare/boundaries/MeResource.java`
 ```java
 package tn.supcom.basilcare.boundaries;
 
@@ -1853,11 +1853,11 @@ public class MeResource {
 }
 ```
 
-Create `api/src/main/java/tn/supcom/basilcare/boundaries/CorsFilter.java` with the same code as in step 3.11 (only the `package` line is the same too, since both use `tn.supcom.basilcare.boundaries`).
+Create `middleware/api/src/main/java/tn/supcom/basilcare/boundaries/CorsFilter.java` with the same code as in step 3.11 (only the `package` line is the same too, since both use `tn.supcom.basilcare.boundaries`).
 
 ```bash
-cd api && mvn package && cd ..
-git add api && git commit -m "api: JWT verification filter, /me endpoint, CORS"
+mvn --file middleware/api/pom.xml package
+git add middleware/api && git commit -m "api: JWT verification filter, /me endpoint, CORS"
 ```
 
 ---
@@ -1938,7 +1938,7 @@ git add deploy && git commit -m "deploy: development compose file"
 
 ---
 
-## 6. `pwa-farmer/` and `pwa-admin/`
+## 6. `frontends/frontoffice/` and `frontends/backoffice/`
 
 A PWA is a website with two extra files: a **manifest** (makes it installable) and a **service worker** (offline cache). Plain HTML/CSS/JS, no framework, no build step.
 
@@ -1952,7 +1952,7 @@ mkdir -p pages scripts styles images
 ```
 
 ```
-pwa-farmer/
+frontends/frontoffice/
 ├── index.html            the shell, loaded once
 ├── manifest.webmanifest  installability
 ├── sw.js                 service worker (must be at the root to control the whole app)
@@ -1965,7 +1965,7 @@ pwa-farmer/
 
 ### 6.2 Files
 
-**File:** `pwa-farmer/index.html`
+**File:** `frontends/frontoffice/index.html`
 ```html
 <!doctype html>
 <html lang="en">
@@ -1998,7 +1998,7 @@ pwa-farmer/
 </html>
 ```
 
-**File:** `pwa-farmer/scripts/auth.js`
+**File:** `frontends/frontoffice/scripts/auth.js`
 ```javascript
 // OAuth 2.0 authorization code + PKCE against the BasilCare IAM.
 const config = {
@@ -2076,7 +2076,7 @@ export function token() {
 }
 ```
 
-**File:** `pwa-farmer/scripts/app.js`
+**File:** `frontends/frontoffice/scripts/app.js`
 ```javascript
 import { signIn, signUp, signOut, handleRedirect, token } from "./auth.js";
 
@@ -2128,7 +2128,7 @@ try {
 render();
 ```
 
-**File:** `pwa-farmer/sw.js`
+**File:** `frontends/frontoffice/sw.js`
 ```javascript
 // Cache the app shell so the PWA opens offline. Change the name to force an update.
 const CACHE = "basilcare-farmer-v1";
@@ -2153,7 +2153,7 @@ self.addEventListener("fetch", (event) => {
 });
 ```
 
-**File:** `pwa-farmer/manifest.webmanifest`
+**File:** `frontends/frontoffice/manifest.webmanifest`
 ```json
 {
   "name": "BasilCare Farmer",
@@ -2166,7 +2166,7 @@ self.addEventListener("fetch", (event) => {
 }
 ```
 
-**File:** `pwa-farmer/pages/welcome.html`
+**File:** `frontends/frontoffice/pages/welcome.html`
 ```html
 <section>
     <h1>BasilCare</h1>
@@ -2174,7 +2174,7 @@ self.addEventListener("fetch", (event) => {
 </section>
 ```
 
-**File:** `pwa-farmer/pages/dashboard.html`
+**File:** `frontends/frontoffice/pages/dashboard.html`
 ```html
 <section>
     <h1>Dashboard</h1>
@@ -2187,7 +2187,7 @@ self.addEventListener("fetch", (event) => {
 </section>
 ```
 
-**File:** `pwa-farmer/pages/about.html`
+**File:** `frontends/frontoffice/pages/about.html`
 ```html
 <section>
     <h1>About</h1>
@@ -2195,7 +2195,7 @@ self.addEventListener("fetch", (event) => {
 </section>
 ```
 
-**File:** `pwa-farmer/styles/main.css`
+**File:** `frontends/frontoffice/styles/main.css`
 ```css
 body { margin: 0; font-family: system-ui, sans-serif; color: #1d3b22; background: #f6f9f5; }
 header { display: flex; gap: 1rem; align-items: center; justify-content: space-between;
@@ -2207,7 +2207,7 @@ main { padding: 1rem; max-width: 900px; margin: auto; }
 .card { background: #fff; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 4px #0002; }
 ```
 
-**File:** `pwa-farmer/images/icon.svg`
+**File:** `frontends/frontoffice/images/icon.svg`
 ```html
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#2f6b3a"/>
@@ -2218,12 +2218,12 @@ main { padding: 1rem; max-width: 900px; margin: auto; }
 ### 6.3 Test the full sign-in
 
 ```bash
-python -m http.server 5500       # inside pwa-farmer/
+python -m http.server 5500       # inside frontends/frontoffice/
 ```
 
 Open `http://localhost:5500` → *Sign in* → IAM login page → sign in with the account activated in step 5 → back on the PWA → *Dashboard* shows your username, which came from `GET /api/me` with your token. **That is the end-to-end proof that IAM and API work together.**
 
-### 6.4 `pwa-admin/`
+### 6.4 `frontends/backoffice/`
 
 Same files, with these changes:
 
@@ -2242,7 +2242,7 @@ git add pwa-farmer pwa-admin && git commit -m "PWAs: shell, router, PKCE sign-in
 
 ---
 
-## 7. `simulator/` and the MQTT contract
+## 7. `iot/simulator/` and the MQTT contract
 
 SmartHydro has no simulator or topic table, so this step is new.
 
@@ -2255,10 +2255,10 @@ Decide and write down, as a table:
 - Reading payload fields: `device_id`, `sensor`, `value`, `unit`, `measured_at` (ISO 8601 with offset, e.g. `2026-11-02T14:05:00+01:00`), `calibrated` (true/false), plus `seq` and `buffered` (useful after network outages);
 - QoS 1 for everything, `status` retained with a Last Will `online:false`.
 
-### 7.2 Write the simulator: `simulator/simulator.py`
+### 7.2 Write the simulator: `iot/simulator/simulator.py`
 
 ```bash
-cd simulator
+cd iot/simulator
 python -m venv .venv && source .venv/Scripts/activate
 pip install paho-mqtt==2.1.0
 pip freeze > requirements.txt
@@ -2291,10 +2291,10 @@ git add simulator docs && git commit -m "simulator and MQTT contract"
 
 | Folder | What to put in Phase 0 | How |
 |---|---|---|
-| `edge/` | README describing the planned modules (sensors, camera, queue, pump guard, publisher); `basilcare_edge/__init__.py`; `requirements.txt` | by hand |
-| `ai-service/` | README; empty `rag/`, `mcp/`, `evaluation/` (add a `.gitkeep` file in each so Git keeps them) | by hand |
-| `model/` | README; `weights/`, `evaluation-images/` with `.gitkeep` | by hand |
-| `nodered/` | `flows.json` with one *mqtt in* node on `basilcare/v1/+/#` wired to a *debug* node | add a `nodered/node-red:4.0.9` service to the compose file, build the flow in the editor at `http://localhost:1880`, then *Menu → Export → All flows* into `flows.json` |
+| `iot/edge/` | README describing the planned modules (sensors, camera, queue, pump guard, publisher); `basilcare_edge/__init__.py`; `requirements.txt` | by hand |
+| `iot/ai/service/` | README; empty `rag/`, `mcp/`, `evaluation/` (add a `.gitkeep` file in each so Git keeps them) | by hand |
+| `iot/ai/model/` | README; `weights/`, `evaluation-images/` with `.gitkeep` | by hand |
+| `iot/node-red/` | `flows.json` with one *mqtt in* node on `basilcare/v1/+/#` wired to a *debug* node | add a `nodered/node-red:4.0.9` service to the compose file, build the flow in the editor at `http://localhost:1880`, then *Menu → Export → All flows* into `flows.json` |
 | `postman/` | collection with `GET /api/health`, `GET /api/me` (Bearer token), `GET /iam/jwk` | build the requests in Postman, then *Export* (format v2.1) |
 | `deploy/` | `compose.yaml` (done), `.env.example` (list of variables with fake values), `setup.sh` (install Docker/JDK/Maven on the VM, `git clone`), `deploy.sh` (`git pull`, `mvn package`, `docker compose up -d`, check `/api/health`) | by hand |
 | `docs/` | scope PDF, `mqtt-contract.md`, user stories, UML diagrams, design statement PDF | user stories: one GitHub issue per story; diagrams: write PlantUML (`.puml`) text files and render them with the PlantUML jar or the VS Code "PlantUML" extension |
@@ -2306,7 +2306,7 @@ Then fill in every folder README with three parts: **what the folder does**, **w
 ## 9. Phase 0 checklist
 
 - [ ] Repository on GitHub with the 12 folders, each with a README
-- [ ] `mvn package` succeeds in `iam/` and in `api/`
+- [ ] `mvn package` succeeds in `middleware/iam/` and in `middleware/api/`
 - [ ] `curl localhost:8080/api/health` answers `UP`
 - [ ] Sign up → activation code in the log → activate → sign in from the farmer PWA → dashboard shows your username from `/api/me`
 - [ ] A farmer account is refused by the admin PWA

@@ -3,14 +3,14 @@ name: Edge and simulator CI
 on:
   pull_request:
     paths:
-      - "edge/**"
-      - "simulator/**"
+      - "iot/edge/**"
+      - "iot/simulator/**"
       - ".github/workflows/python-ci.yml"
   push:
     branches: [main]
     paths:
-      - "edge/**"
-      - "simulator/**"
+      - "iot/edge/**"
+      - "iot/simulator/**"
       - ".github/workflows/python-ci.yml"
 
 permissions:
@@ -28,12 +28,12 @@ jobs:
         run: |
           python3 --version
           python3 -m venv .venv
-          .venv/bin/pip install -r edge/requirements.txt -r simulator/requirements.txt
+          .venv/bin/pip install -r iot/edge/requirements.txt -r iot/simulator/requirements.txt
 
       - name: Simulator tests
-        working-directory: simulator
-        run: ../.venv/bin/python -m unittest -v
+        working-directory: iot/simulator
+        run: ../../.venv/bin/python -m unittest -v
 
       - name: Edge gateway tests
-        working-directory: edge
-        run: ../.venv/bin/python -m unittest discover -s tests -t . -v
+        working-directory: iot/edge
+        run: ../../.venv/bin/python -m unittest discover -s tests -t . -v

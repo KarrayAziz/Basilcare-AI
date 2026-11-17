@@ -13,7 +13,7 @@ Scope §5.1: a compact image classifier on the Raspberry Pi 4, with a quantized 
 - Pre-processing is identical on the PC and the Pi: centre square crop, resize, RGB 0..255. The model rescales internally.
 - `review_required` when confidence < 0.7 (configurable), when any quality check fails, or when no model is installed.
 
-## Evidence (pipeline check on a synthetic dataset, see `model/README.md`)
+## Evidence (pipeline check on a synthetic dataset, see `iot/ai/model/README.md`)
 
 | Variant | int8 accuracy | int8 kernels |
 |---|---|---|
@@ -23,4 +23,4 @@ Scope §5.1: a compact image classifier on the Raspberry Pi 4, with a quantized 
 ## Consequences
 
 - About 600 KiB of model, fast enough to screen every few minutes without disturbing the measurement loop (which runs in another thread anyway).
-- Real accuracy and Pi latency are still unknown until the dataset exists. `model/evaluate.py` and `edge/tools/benchmark_model.py` produce the numbers for the design notebook.
+- Real accuracy and Pi latency are still unknown until the dataset exists. `iot/ai/model/evaluate.py` and `iot/edge/tools/benchmark_model.py` produce the numbers for the design notebook.

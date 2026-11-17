@@ -26,7 +26,6 @@ import urllib.request
 
 DEVICE = "basil-sim-01"
 CLIENT = "basilcare-pwa-admin"
-REDIRECT = "http://localhost:5501/"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -61,11 +60,12 @@ def call(method, url, token=None, body=None, form=None, expect=None):
     return status, payload, location
 
 
-def sign_in(api, password):
+def sign_in(api, password, redirect=None):
+    redirect = redirect or api.rstrip("/") + "/admin/"
     verifier = secrets.token_urlsafe(32)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     query = urllib.parse.urlencode({
-        "client_id": CLIENT, "redirect_uri": REDIRECT, "response_type": "code",
+        "client_id": CLIENT, "redirect_uri": redirect, "response_type": "code",
         "code_challenge": challenge, "code_challenge_method": "S256",
         "scope": "resource.read resource.write", "state": "smoke"})
     status, _, location = call("POST", f"{api}/iam/login?{query}",
@@ -73,7 +73,7 @@ def sign_in(api, password):
     code = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)["code"][0]
     _, token, _ = call("POST", f"{api}/iam/oauth/token", expect={200}, form={
         "grant_type": "authorization_code", "code": code, "client_id": CLIENT,
-        "redirect_uri": REDIRECT, "code_verifier": verifier})
+        "redirect_uri": redirect, "code_verifier": verifier})
     return token["access_token"]
 
 
@@ -95,10 +95,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--api", default="http://localhost:8080")
     parser.add_argument("--password", default="change-me-now", help="ADMIN_PASSWORD of the IAM")
+    parser.add_argument("--redirect-uri", help="Registered Admin return URL if different from --api/admin/")
     args = parser.parse_args()
     api = args.api.rstrip("/")
 
-    token = sign_in(api, args.password)
+    token = sign_in(api, args.password, args.redirect_uri)
     step("signed in as admin (authorization code + PKCE)")
 
     status, _, _ = call("POST", f"{api}/api/devices", token,

@@ -1,8 +1,8 @@
 // Calls to the BasilCare REST API with the signed-in user's token.
 import { token } from "./auth.js";
 
-// Same machine in development. On the server, the reverse proxy serves the API on the PWA's origin.
-export const API = window.location.hostname === "localhost" ? "http://localhost:8080/api" : "/api";
+// WildFly serves both PWAs and the API on the same origin, in development and production.
+export const API = "/api";
 
 export class ApiError extends Error {
     constructor(status, body) {

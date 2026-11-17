@@ -57,8 +57,16 @@ for _ in $(seq 1 60); do
 done
 curl -fsS http://localhost:8080/api/health >/dev/null || { echo "API not healthy"; docker compose -f deploy/compose.yaml logs --tail 80 wildfly; exit 1; }
 
+# The release is incomplete if Java is up but either frontend or the IAM is unavailable.
+for _ in $(seq 1 30); do
+    if curl -fsS http://localhost:8080/iam/jwk >/dev/null 2>&1; then break; fi
+    sleep 2
+done
+python3 deploy/hosting_smoke_test.py --static-only
+
 if [ "$SMOKE" = 1 ]; then
     set -a; . deploy/.env; set +a
-    python3 deploy/smoke_test.py --password "$ADMIN_PASSWORD"
+    python3 deploy/smoke_test.py --password "$ADMIN_PASSWORD" \
+        --redirect-uri "${PUBLIC_ORIGIN:-http://localhost:8080}/admin/"
 fi
 echo "== deployed"

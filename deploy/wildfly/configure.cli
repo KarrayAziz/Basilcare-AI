@@ -1,0 +1,35 @@
+# Adapted from the Undertow file-handler/location approach in the professor's
+# default-host.cli and add-host.cli. Both PWAs share the API's origin and use
+# separate paths, rather than requiring development DNS and extra virtual hosts.
+# Safe to run on every container start: existing resources are updated.
+embed-server --server-config=standalone.xml --std-out=echo
+set landingPath=`:resolve-expression(expression=${landing.path})`
+set farmerPath=`:resolve-expression(expression=${farmer.path})`
+set adminPath=`:resolve-expression(expression=${admin.path})`
+
+/subsystem=undertow/configuration=handler/file=welcome-content:write-attribute(name=path,value=$landingPath)
+/subsystem=undertow/configuration=handler/file=welcome-content:write-attribute(name=directory-listing,value=false)
+
+if (outcome != success) of /subsystem=undertow/configuration=handler/file=farmer-content:read-resource
+    /subsystem=undertow/configuration=handler/file=farmer-content:add(path=$farmerPath,directory-listing=false)
+else
+    /subsystem=undertow/configuration=handler/file=farmer-content:write-attribute(name=path,value=$farmerPath)
+end-if
+if (outcome != success) of /subsystem=undertow/server=default-server/host=default-host/location=\/farmer:read-resource
+    /subsystem=undertow/server=default-server/host=default-host/location=\/farmer:add(handler=farmer-content)
+else
+    /subsystem=undertow/server=default-server/host=default-host/location=\/farmer:write-attribute(name=handler,value=farmer-content)
+end-if
+
+if (outcome != success) of /subsystem=undertow/configuration=handler/file=admin-content:read-resource
+    /subsystem=undertow/configuration=handler/file=admin-content:add(path=$adminPath,directory-listing=false)
+else
+    /subsystem=undertow/configuration=handler/file=admin-content:write-attribute(name=path,value=$adminPath)
+end-if
+if (outcome != success) of /subsystem=undertow/server=default-server/host=default-host/location=\/admin:read-resource
+    /subsystem=undertow/server=default-server/host=default-host/location=\/admin:add(handler=admin-content)
+else
+    /subsystem=undertow/server=default-server/host=default-host/location=\/admin:write-attribute(name=handler,value=admin-content)
+end-if
+
+stop-embedded-server

@@ -13,7 +13,7 @@ TARGET="${2:-$HOME/Basilcare-AI}"
 
 echo "== packages"
 sudo apt-get update -y
-sudo apt-get install -y docker.io docker-compose-v2 git openssl ufw
+sudo apt-get install -y docker.io docker-compose-v2 git openssl ufw python3 curl
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$USER"   # takes effect at the next login
 

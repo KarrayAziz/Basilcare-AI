@@ -30,7 +30,7 @@
       },
       {
         "key": "redirect_uri",
-        "value": "http://localhost:5501/",
+        "value": "{{baseUrl}}/admin/",
         "type": "string"
       },
       {

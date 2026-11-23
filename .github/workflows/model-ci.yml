@@ -1,0 +1,41 @@
+name: Model pipeline CI
+
+on:
+  pull_request:
+    paths: ["iot/ai/model/**", ".github/workflows/model-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["iot/ai/model/**", ".github/workflows/model-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-model-pipeline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: iot/ai/model/requirements-mlops.txt
+      - name: Install audit/test dependencies only
+        run: python -m pip install -r iot/ai/model/requirements-mlops.txt
+      - name: Test dataset audit, run provenance, quality gates and trainer integration
+        run: python -m unittest discover -s iot/ai/model/tests -v
+      - name: Exercise the real audit CLI using artificial pictures
+        run: |
+          python iot/ai/model/tests/fixtures.py --out /tmp/model-ci-fixtures
+          python iot/ai/model/run_pipeline.py --data /tmp/model-ci-fixtures/data.yaml --out /tmp/model-ci-audit --audit-only
+      - name: Publish synthetic audit reports (not accuracy measurements)
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-dataset-audit
+          if-no-files-found: error
+          path: |
+            /tmp/model-ci-audit/run.json
+            /tmp/model-ci-audit/report.md
+            /tmp/model-ci-audit/dataset-audit.json

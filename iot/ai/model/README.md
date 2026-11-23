@@ -1,5 +1,14 @@
 # model
 
+The current YOLO detector uses Amir's [`merge_yolo_datasets.py`](merge_yolo_datasets.py)
+and [`train_yolo.py`](train_yolo.py). The [MLOps run guide](MLOPS.md) adds a final dataset
+audit, input snapshots, provenance records and configurable quality checks around
+that existing trainer. Start with `run_pipeline.py --audit-only`; training is explicit
+and requires local weights and a chosen policy. CI tests use artificial data, not a
+measured production-model accuracy result.
+
+The MobileNet/TFLite classifier workflow below is retained as a separate pipeline.
+
 Training, export and evaluation of the **leaf-screening model** that runs on the Raspberry Pi (scope §5.1, §5.4). The model screens a leaf picture for visible abnormalities. It is **not a diagnosis**: on the Pi, a result is flagged `review_required` whenever the model is unsure or the picture is poor.
 
 ```

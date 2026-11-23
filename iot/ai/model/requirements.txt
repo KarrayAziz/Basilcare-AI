@@ -1,4 +1,5 @@
 # Training and export run on a laptop or Google Colab, NOT on the Pi.
+# MobileNet/TFLite only. Use requirements-yolo.txt for YOLO, requirements-mlops.txt for audit/CI.
 tensorflow>=2.18,<2.21
 pillow>=10
 numpy>=1.26

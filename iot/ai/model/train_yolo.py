@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import yaml
+from dataset_audit import label_directory
 
 HERE = Path(__file__).resolve().parent
 
@@ -30,9 +31,12 @@ def keep_awake(on):
 def count_test_instances(data_yaml, names):
     """Boxes and images per class in the test split (to flag classes too rare to judge)."""
     config = yaml.safe_load(Path(data_yaml).read_text())
-    labels = Path(config.get("path", Path(data_yaml).parent)) / config["test"].replace("images", "labels")
+    root = Path(config.get("path") or Path(data_yaml).resolve().parent)
+    if not root.is_absolute():
+        root = Path(data_yaml).resolve().parent / root
+    labels = label_directory(root / config["test"])
     boxes, images = [0] * len(names), [0] * len(names)
-    for file in labels.glob("*.txt"):
+    for file in labels.rglob("*.txt"):
         seen = set()
         for line in file.read_text().splitlines():
             if line.strip():
@@ -48,6 +52,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data", required=True, type=Path)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--project", type=Path, default=HERE / "runs")
     parser.add_argument("--model", default=str(HERE / "runs" / "yolo26n.pt"),
                         help="starting weights (COCO-pretrained yolo26n.pt by default)")
     parser.add_argument("--epochs", type=int, default=80)
@@ -61,14 +66,15 @@ def main(argv=None):
 
     from ultralytics import YOLO
 
-    project = HERE / "runs"
+    project = args.project.resolve()
     model = args.model if Path(args.model).exists() else Path(args.model).name   # else downloaded
     keep_awake(True)
     try:
         trainer_model = YOLO(model)
         trainer_model.train(data=str(args.data.resolve()), epochs=args.epochs, patience=args.patience,
                             imgsz=args.imgsz, batch=args.batch, device=args.device, workers=args.workers,
-                            seed=args.seed, project=str(project), name=args.name, exist_ok=False, plots=True)
+                            seed=args.seed, project=str(project), name=args.name, exist_ok=False, plots=True,
+                            cache=False)
         run = Path(trainer_model.trainer.save_dir)
         best = YOLO(run / "weights" / "best.pt")
         metrics = best.val(data=str(args.data.resolve()), split="test", imgsz=args.imgsz, batch=args.batch,
@@ -81,11 +87,11 @@ def main(argv=None):
     per_class = {}
     for k, c in enumerate(metrics.box.ap_class_index):
         p, r, ap50, ap = metrics.box.class_result(k)
-        per_class[names[int(c)]] = {"precision": round(float(p), 3), "recall": round(float(r), 3),
-                                    "mAP50": round(float(ap50), 3), "mAP50_95": round(float(ap), 3),
+        per_class[names[int(c)]] = {"precision": float(p), "recall": float(r),
+                                    "mAP50": float(ap50), "mAP50_95": float(ap),
                                     "test_images": images[int(c)], "test_boxes": boxes[int(c)]}
-    overall = {"precision": round(float(metrics.box.mp), 3), "recall": round(float(metrics.box.mr), 3),
-               "mAP50": round(float(metrics.box.map50), 3), "mAP50_95": round(float(metrics.box.map), 3)}
+    overall = {"precision": float(metrics.box.mp), "recall": float(metrics.box.mr),
+               "mAP50": float(metrics.box.map50), "mAP50_95": float(metrics.box.map)}
     result = {"run": run.name, "data": str(args.data), "classes": names, "overall": overall,
               "per_class": per_class, "imgsz": args.imgsz, "epochs_requested": args.epochs}
     (run / "test-metrics.json").write_text(json.dumps(result, indent=2))
@@ -93,10 +99,10 @@ def main(argv=None):
              "| class | test images | boxes | precision | recall | mAP50 | mAP50-95 |", "|---|---|---|---|---|---|---|"]
     for name, m in per_class.items():
         flag = " (too few to judge)" if m["test_images"] < 10 else ""
-        lines.append(f"| {name}{flag} | {m['test_images']} | {m['test_boxes']} | {m['precision']} | "
-                     f"{m['recall']} | {m['mAP50']} | {m['mAP50_95']} |")
-    lines.append(f"| **all** | | {sum(boxes)} | {overall['precision']} | {overall['recall']} | "
-                 f"{overall['mAP50']} | {overall['mAP50_95']} |")
+        lines.append(f"| {name}{flag} | {m['test_images']} | {m['test_boxes']} | {m['precision']:.3f} | "
+                     f"{m['recall']:.3f} | {m['mAP50']:.3f} | {m['mAP50_95']:.3f} |")
+    lines.append(f"| **all** | | {sum(boxes)} | {overall['precision']:.3f} | {overall['recall']:.3f} | "
+                 f"{overall['mAP50']:.3f} | {overall['mAP50_95']:.3f} |")
     (run / "test-metrics.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     print(f"\nweights: {run / 'weights' / 'best.pt'}")

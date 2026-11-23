@@ -126,3 +126,23 @@ test("pump state, pump command and screening field checks", () => {
     assertInvalid(`${T}/screening`, screening({ confidence: 1.2 }), "confidence");
     assertInvalid(`${T}/screening`, screening({ quality_issues: "too_dark" }), "quality_issues");
 });
+
+const liveFrame = (fields = {}) => ({
+    device_id: "basil-sim-01", frame_id: 12, captured_at: "2026-11-23T18:00:00+01:00",
+    model_version: "basil-detect-0.1", width: 640, height: 480, image_jpeg: "/9j/4AAQSkZJRg==",
+    detections: [{ label: "downy_mildew", confidence: 0.71, box: [0.1, 0.2, 0.5, 0.6] }],
+    inference_ms: 182.4, fps: 2.1, ...fields,
+});
+
+test("live camera frames (contract section 6a)", () => {
+    assertValid(`${T}/camera/live`, liveFrame(), "camera_live");
+    assertValid(`${T}/camera/live`, liveFrame({ detections: [] }), "camera_live");
+    assertInvalid(`${T}/camera/live`, liveFrame({ image_jpeg: "" }), "image_jpeg");
+    assertInvalid(`${T}/camera/live`, liveFrame({ image_jpeg: "A".repeat(700001) }), "image_jpeg");
+    assertInvalid(`${T}/camera/live`, liveFrame({ frame_id: 0 }), "frame_id");
+    assertInvalid(`${T}/camera/live`, liveFrame({ detections: [{ label: "healthy", confidence: 0.5, box: [0, 0, 1.5, 1] }] }),
+                  "detections");
+    assertInvalid(`${T}/camera/live`, liveFrame({ detections: [{ label: "", confidence: 0.5, box: [0, 0, 1, 1] }] }),
+                  "detections");
+    assertInvalid(`${T}/camera/other`, liveFrame(), "unknown topic");
+});

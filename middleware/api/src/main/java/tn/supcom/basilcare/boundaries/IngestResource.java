@@ -15,6 +15,7 @@ import tn.supcom.basilcare.security.IngestKeyRequired;
 import tn.supcom.basilcare.services.ContractValidator;
 import tn.supcom.basilcare.services.IncidentService;
 import tn.supcom.basilcare.services.IngestResult;
+import tn.supcom.basilcare.services.LiveFrameStore;
 import tn.supcom.basilcare.services.PumpService;
 import tn.supcom.basilcare.services.TelemetryService;
 
@@ -45,6 +46,9 @@ public class IngestResource {
     @Inject
     IncidentService incidents;
 
+    @Inject
+    LiveFrameStore frames;
+
     @POST
     @Path("telemetry")
     public Response telemetry(JsonObject payload) {
@@ -67,6 +71,13 @@ public class IngestResource {
     @Path("screening")
     public Response screening(JsonObject payload) {
         return answer(telemetry.ingestScreening(payload));
+    }
+
+    /** Live camera frame (contract section 6a): kept in memory only, replaces the previous one. */
+    @POST
+    @Path("camera")
+    public Response camera(JsonObject payload) {
+        return answer(frames.accept(payload));
     }
 
     /**

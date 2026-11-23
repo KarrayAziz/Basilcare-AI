@@ -50,8 +50,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def call(method, url, token=None, body=None, form=None, expect=None):
-    headers = {}
+def call(method, url, token=None, body=None, form=None, expect=None, headers=None, response_headers=None):
+    headers = dict(headers or {})
     data = None
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -65,8 +65,12 @@ def call(method, url, token=None, body=None, form=None, expect=None):
     opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=SSL_CONTEXT))
     try:
         with opener.open(request, timeout=15) as response:
+            if response_headers is not None:
+                response_headers.update(response.headers)
             status, text, location = response.status, response.read().decode(), response.headers.get("Location")
     except urllib.error.HTTPError as error:
+        if response_headers is not None:
+            response_headers.update(error.headers)
         status, text, location = error.code, error.read().decode(), error.headers.get("Location")
     if expect and status not in expect:
         raise AssertionError(f"{method} {url} -> {status} (expected {expect}): {text[:300]}")
@@ -78,20 +82,35 @@ def call(method, url, token=None, body=None, form=None, expect=None):
 
 
 def sign_in(api, password, redirect=None):
-    redirect = redirect or api.rstrip("/") + "/admin/"
+    sites = application_sites(api)
+    redirect = redirect or sites["admin"] + "/"
+    iam = sites["iam"]
     verifier = secrets.token_urlsafe(32)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     query = urllib.parse.urlencode({
         "client_id": CLIENT, "redirect_uri": redirect, "response_type": "code",
         "code_challenge": challenge, "code_challenge_method": "S256",
         "scope": "resource.read resource.write", "state": "smoke"})
-    status, _, location = call("POST", f"{api}/iam/login?{query}",
+    status, _, location = call("POST", f"{iam}/iam/login?{query}",
                                form={"username": "admin", "password": password}, expect={303})
     code = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)["code"][0]
-    _, token, _ = call("POST", f"{api}/iam/oauth/token", expect={200}, form={
+    _, token, _ = call("POST", f"{iam}/iam/oauth/token", expect={200}, form={
         "grant_type": "authorization_code", "code": code, "client_id": CLIENT,
         "redirect_uri": redirect, "code_verifier": verifier})
     return token["access_token"]
+
+
+def application_sites(base):
+    """Four sibling names, preserving scheme and custom port; localhost is readiness-only legacy mode."""
+    parsed = urllib.parse.urlsplit(base)
+    if parsed.hostname in {"localhost", "127.0.0.1"}:
+        return {"api": base, "iam": base, "farmer": base + "/farmer", "admin": base + "/admin"}
+    domain = parsed.hostname
+    if domain.split(".")[0] in {"api", "iam", "www", "admin"}:
+        domain = domain.split(".", 1)[1]
+    port = f":{parsed.port}" if parsed.port else ""
+    return {app: f"{parsed.scheme}://{prefix}.{domain}{port}"
+            for app, prefix in {"api": "api", "iam": "iam", "farmer": "www", "admin": "admin"}.items()}
 
 
 def wait_for(description, probe, timeout=90):
@@ -115,7 +134,7 @@ def main():
     parser.add_argument("--password", default="change-me-now", help="ADMIN_PASSWORD of the IAM")
     parser.add_argument("--redirect-uri", help="Registered Admin return URL if different from --api/admin/")
     args = parser.parse_args()
-    api = args.api.rstrip("/")
+    api = application_sites(args.api.rstrip("/"))["api"]
     trust(args.cafile)
 
     token = sign_in(api, args.password, args.redirect_uri)

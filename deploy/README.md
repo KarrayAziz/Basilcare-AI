@@ -42,10 +42,12 @@ python deploy/hosting_smoke_test.py                       # HTTPS, assets and bo
 python deploy/smoke_test.py                                # full demo path (simulator runs in the demo profile)
 ```
 
-Both tests default to `https://basilcare.test` and trust `deploy/certs/basilcare.crt`. Without the
-hosts entry use `--base https://localhost --public-origin https://basilcare.test` (hosting test) or
-`--api https://localhost --redirect-uri https://basilcare.test/admin/` (smoke test). If a local
-MongoDB already uses port 27017, set `MONGO_PORT=27018`.
+Both tests default to base domain `basilcare.test`, derive the four application names,
+and trust `deploy/certs/basilcare.crt`. Add all names to your hosts file first; see the
+[four-domain setup and migration](../docs/four-local-domains.md). For a custom base domain
+or HTTPS port pass `--base https://your-domain.test:8443` to the hosting test or
+`--api https://api.your-domain.test:8443` to the full smoke test.
+If a local MongoDB already uses port 27017, set `MONGO_PORT=27018`.
 
 Expected end of the smoke test:
 
@@ -59,10 +61,10 @@ SMOKE TEST PASSED
 
 After changing Java code, rebuild the WAR and run `docker compose -f deploy/compose.yaml restart wildfly`.
 
-Open <https://basilcare.test/farmer/> and <https://basilcare.test/admin/>. With the dev override,
+Open <https://www.basilcare.test/> and <https://admin.basilcare.test/>. With the dev override,
 WildFly serves the frontend folders through read-only mounts. CLI configuration is reapplied on every start,
 including a new container; no manual server edits are required. Authentication returns to
-the app's own path. Frontend file edits are available immediately; refresh/update the service
+the app's own origin. Frontend file edits are available immediately; refresh/update the service
 worker when testing an already installed app.
 
 ### Server
@@ -73,7 +75,8 @@ bash deploy/deploy.sh                                          # every update
 ```
 
 WildFly serves HTTPS on port 443. Set `PUBLIC_ORIGIN=https://your-domain.example` (no trailing
-slash) and `TLS_HOSTNAME=your-domain.example` in `deploy/.env` before recreating the WildFly
+slash) and `TLS_HOSTNAME=your-domain.example`, `FARMER_ORIGIN=https://www.your-domain.example`
+and `ADMIN_ORIGIN=https://admin.your-domain.example` in `deploy/.env` before recreating the WildFly
 container. The generated certificate is self-signed; for a public server, place a CA-issued
 PKCS12 keystore at `/opt/jboss/wildfly/certs/basilcare.p12` in the `wildfly-certs` volume (it is
 never overwritten), or put a TLS proxy in front as described in the

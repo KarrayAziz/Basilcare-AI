@@ -1,8 +1,8 @@
 // Calls to the BasilCare REST API with the signed-in user's token.
-import { token } from "./auth.js";
+import { token, API } from "./auth.js";
 
-// WildFly serves both PWAs and the API on the same origin, in development and production.
-export const API = "/api";
+// API uses its own origin; auth.js derives it from the frontend hostname.
+export { API };
 
 export class ApiError extends Error {
     constructor(status, body) {

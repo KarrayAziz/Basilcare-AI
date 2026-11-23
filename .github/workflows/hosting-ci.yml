@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   verify-hosting:
-    runs-on: ubuntu-latest
+    # Keep the Chromium dependency installer on a supported, predictable distribution.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       BASE: https://basilcare.test
@@ -36,7 +37,7 @@ jobs:
       - name: Build the production WildFly image
         run: docker compose -p hosting-ci -f deploy/compose.yaml build wildfly
       - name: Resolve basilcare.test like a laptop's hosts file
-        run: echo "127.0.0.1 basilcare.test" | sudo tee -a /etc/hosts
+        run: echo "127.0.0.1 basilcare.test www.basilcare.test admin.basilcare.test api.basilcare.test iam.basilcare.test" | sudo tee -a /etc/hosts
       - name: Start isolated MongoDB and WildFly services
         run: docker compose -p hosting-ci -f deploy/compose.yaml up -d --no-build --no-deps mongodb wildfly
       - name: Verify HTTPS, static hosting and PKCE against the self-signed certificate
@@ -50,9 +51,16 @@ jobs:
           docker compose -p hosting-ci -f deploy/compose.yaml restart wildfly
           bash deploy/wait_ready.sh "$BASE"
           python3 deploy/hosting_smoke_test.py --base "$BASE" --cafile deploy/certs/basilcare.crt
+      - name: Check login and cross-origin requests in Chromium
+        run: |
+          npm install --prefix /tmp/basilcare-browser --no-save playwright@1.56.1
+          /tmp/basilcare-browser/node_modules/.bin/playwright install --with-deps chromium
+          NODE_PATH=/tmp/basilcare-browser/node_modules node deploy/browser_hosting_test.cjs
       - name: Service logs
         if: always()
-        run: docker compose -p hosting-ci -f deploy/compose.yaml logs --tail=160 wildfly mongodb
+        run: |
+          docker compose -p hosting-ci -f deploy/compose.yaml logs --tail=160 wildfly mongodb
+          docker compose -p hosting-ci -f deploy/compose.yaml exec -T wildfly /opt/jboss/wildfly/bin/jboss-cli.sh --connect --command='/subsystem=undertow/server=default-server:read-resource(recursive=true)' || true
       - name: Clean up isolated services
         if: always()
         run: docker compose -p hosting-ci -f deploy/compose.yaml down --volumes

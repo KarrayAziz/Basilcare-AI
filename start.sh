@@ -61,25 +61,42 @@ fi
 HOST="$(env_value TLS_HOSTNAME)"; HOST="${HOST:-basilcare.test}"
 PORT="$(env_value HTTPS_PORT)"; PORT="${PORT:-443}"
 ORIGIN="https://$HOST"; [ "$PORT" = 443 ] || ORIGIN="$ORIGIN:$PORT"
+PORT_SUFFIX=""; [ "$PORT" = 443 ] || PORT_SUFFIX=":$PORT"
+for pair in "FARMER_ORIGIN:www" "ADMIN_ORIGIN:admin"; do
+    key="${pair%%:*}"; prefix="${pair#*:}"
+    expected="https://$prefix.$HOST$PORT_SUFFIX"
+    if ! grep -q "^$key=" deploy/.env; then
+        printf '\n%s=%s\n' "$key" "$expected" >> deploy/.env
+    elif [ "$(env_value "$key")" != "$expected" ]; then
+        echo "Set $key=$expected in deploy/.env before starting (login must match the hostname)." >&2
+        exit 1
+    fi
+done
 if [ "$(env_value PUBLIC_ORIGIN)" != "$ORIGIN" ]; then
     echo "WARNING: PUBLIC_ORIGIN in deploy/.env is '$(env_value PUBLIC_ORIGIN)', expected '$ORIGIN'."
-    echo "         Sign-in redirects will not work until you correct it and run start.sh again."
+    echo "         PUBLIC_ORIGIN is the legacy chooser address; frontend redirects use FARMER_ORIGIN and ADMIN_ORIGIN."
 fi
 
-say "Hosts file ($HOST -> 127.0.0.1)"
+say "Hosts file (application names -> 127.0.0.1)"
 if [ "$OS" = windows ]; then HOSTS_FILE=/c/Windows/System32/drivers/etc/hosts; else HOSTS_FILE=/etc/hosts; fi
-if grep -Eq "^[[:space:]]*127\.0\.0\.1[[:space:]]+([^#]*[[:space:]])?$HOST([[:space:]]|$)" "$HOSTS_FILE"; then
-    echo "already present in $HOSTS_FILE"
+MISSING=""
+for name in "$HOST" "www.$HOST" "admin.$HOST" "api.$HOST" "iam.$HOST"; do
+    if ! awk -v host="$name" '$1 == "127.0.0.1" {for (i=2;i<=NF;i++) if ($i == host) found=1} END {exit !found}' "$HOSTS_FILE"; then
+        MISSING="$MISSING $name"
+    fi
+done
+if [ -z "$MISSING" ]; then
+    echo "all names already present in $HOSTS_FILE"
 elif [ "$OS" = windows ]; then
     echo "Missing. Add this line to C:\\Windows\\System32\\drivers\\etc\\hosts (as administrator):"
-    echo "    127.0.0.1  $HOST"
+    echo "    127.0.0.1$MISSING"
     if ask "Open an administrator prompt that adds it now?"; then
-        powershell.exe -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -Command Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value ''127.0.0.1  $HOST'''"
+        powershell.exe -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -Command Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value ''127.0.0.1$MISSING'''"
     fi
 else
     echo "Missing. It is needed so the browser can open $ORIGIN."
-    if ask "Add '127.0.0.1  $HOST' to $HOSTS_FILE now (sudo)?"; then
-        printf '127.0.0.1  %s\n' "$HOST" | sudo tee -a "$HOSTS_FILE" >/dev/null
+    if ask "Add '127.0.0.1$MISSING' to $HOSTS_FILE now (sudo)?"; then
+        printf '127.0.0.1%s\n' "$MISSING" | sudo tee -a "$HOSTS_FILE" >/dev/null
         [ "$OS" = mac ] && sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder 2>/dev/null || true
     fi
 fi
@@ -137,10 +154,11 @@ cat <<EOF
 
 BasilCare is running.
 
-  Farmer app         $ORIGIN/farmer/
-  Administrator app  $ORIGIN/admin/
+  Farmer app         https://www.$HOST$PORT_SUFFIX/
+  Administrator app  https://admin.$HOST$PORT_SUFFIX/
   Start page         $ORIGIN/
-  API health         $ORIGIN/api/health
+  API health         https://api.$HOST$PORT_SUFFIX/api/health
+  IAM keys           https://iam.$HOST$PORT_SUFFIX/iam/jwk
   Node-RED editor    http://localhost:1880
 
   Administrator login:  admin / $(env_value ADMIN_PASSWORD)
@@ -150,7 +168,7 @@ if [ "$SIMULATOR" = 1 ]; then
     cat <<EOF
   Virtual Raspberry Pi "basil-sim-01" is publishing (pH drift fault). Register it once in the
   admin app (Devices) to see its readings and incidents, or run the full acceptance test:
-    python3 deploy/smoke_test.py --password "\$(sed -n 's/^ADMIN_PASSWORD=//p' deploy/.env)"
+    python3 deploy/smoke_test.py --api "https://api.$HOST$PORT_SUFFIX" --password "\$(sed -n 's/^ADMIN_PASSWORD=//p' deploy/.env)"
 EOF
 fi
 echo

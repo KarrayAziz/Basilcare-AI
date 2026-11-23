@@ -20,8 +20,8 @@ middleware/             server applications
   api/                  REST API
   iam/                  accounts and login
 frontends/
-  frontoffice/          Farmer PWA, served at /farmer/
-  backoffice/           Admin PWA, served at /admin/
+  frontoffice/          Farmer PWA, served at www.basilcare.test/
+  backoffice/           Admin PWA, served at admin.basilcare.test/
 iot/
   node-red/             MQTT ingestion flows
   edge/                 Raspberry Pi gateway
@@ -61,15 +61,17 @@ bash start.sh
 `deploy/.env` with random secrets, and starts MongoDB, Mosquitto, Node-RED, WildFly and a
 virtual Raspberry Pi. On the first run it asks (each needs your password):
 
-1. to add `127.0.0.1  basilcare.test` to the hosts file (`/etc/hosts` on macOS,
+1. to add the four application names and the chooser name to the hosts file (`/etc/hosts` on Linux/macOS,
    `C:\Windows\System32\drivers\etc\hosts` on Windows), so the site has a real name;
 2. to trust the self-signed HTTPS certificate WildFly generated (`deploy/certs/basilcare.crt`),
    so the browser shows no warning and the PWAs can be installed and used offline.
 
 Then open:
 
-- Farmer: <https://basilcare.test/farmer/>
-- Admin: <https://basilcare.test/admin/>
+- Farmer: <https://www.basilcare.test/>
+- Admin: <https://admin.basilcare.test/>
+- API: <https://api.basilcare.test/api/health>
+- IAM: <https://iam.basilcare.test/iam/jwk>
 - Application chooser: <https://basilcare.test/>
 
 Sign in as `admin` with the password `start.sh` prints (`ADMIN_PASSWORD` in `deploy/.env`).
@@ -86,7 +88,7 @@ python deploy/smoke_test.py --password change-me-now        # end-to-end check, 
 
 The dev override mounts your locally built WARs and the frontend folders, so frontend edits
 are live and a Java change needs only `docker compose -f deploy/compose.yaml restart wildfly`.
-See [WildFly hosting](deploy/wildfly/README.md) for the CLI configuration, HTTPS and
+See [four local domains and migration](docs/four-local-domains.md) and [WildFly hosting](deploy/wildfly/README.md) for the CLI configuration, HTTPS and
 offline/login isolation.
 
 ## Tests

@@ -12,3 +12,7 @@ __pycache__/
 .env
 *.pem
 *.key
+deploy/certs/
+
+# database (local datasets)
+database/

@@ -1,0 +1,14 @@
+# Only middleware/, frontends/ and deploy/wildfly/ go into the WildFly image.
+.git
+.github
+database
+docs
+iot
+postman
+**/target
+**/node_modules
+**/.venv
+**/__pycache__
+frontends/*/test
+deploy/.env
+deploy/certs

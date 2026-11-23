@@ -1,0 +1,12 @@
+# Development override: serve the WARs you build locally and the frontend folders as they are
+# on disk, so frontend edits are live and a Java change needs only a WildFly restart.
+#   (cd middleware/iam && mvn -q package) && (cd middleware/api && mvn -q package)
+#   docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml up -d
+services:
+  wildfly:
+    volumes:
+      - ../middleware/iam/target/iam.war:/opt/jboss/wildfly/standalone/deployments/iam.war:ro
+      - ../middleware/api/target/api.war:/opt/jboss/wildfly/standalone/deployments/api.war:ro
+      - ./wildfly:/opt/jboss/wildfly/hosting:ro
+      - ../frontends/frontoffice:/opt/jboss/wildfly/frontends/farmer:ro
+      - ../frontends/backoffice:/opt/jboss/wildfly/frontends/admin:ro

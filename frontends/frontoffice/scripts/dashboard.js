@@ -1,9 +1,13 @@
-// Farmer dashboard: live values, history, incidents, pump control and leaf screening (FR-02..FR-05).
+// Farmer dashboard: live camera, live values, history, incidents, pump control and leaf screening (FR-02..FR-05).
 import { api, el } from "./api.js";
-import { age, chart, formatValue, newIncidents, pumpReason, rangeStatus, rangeText, sortIncidents } from "./view.js";
+import { age, boxPixels, chart, detectionColor, detectionSummary, diseaseName, formatValue, liveStatus, newIncidents,
+         pumpReason, rangeStatus, rangeText, sortIncidents } from "./view.js";
 
 const POLL_MS = 5000;
+const CAMERA_MS = 500;   // the device sends at most about 2 frames per second
 let timer = null;
+let cameraTimer = null;
+let lastFrame = null;    // "device:frame_id" of the picture on the canvas
 let deviceId = localStorage.getItem("basilcare.device") || null;
 let chartSensor = "ph";
 let knownIncidents = null;   // ids seen at the previous poll (null = first poll: no notification)
@@ -17,16 +21,21 @@ export async function startDashboard() {
         deviceId = event.target.value;
         localStorage.setItem("basilcare.device", deviceId);
         knownIncidents = null;
+        lastFrame = null;
         refresh();
     });
     await loadDevices();
     await refresh();
     timer = setInterval(refresh, POLL_MS);
+    cameraTimer = setInterval(refreshCamera, CAMERA_MS);
+    refreshCamera();
 }
 
 export function stopDashboard() {
     if (timer) clearInterval(timer);
-    timer = null;
+    if (cameraTimer) clearInterval(cameraTimer);
+    timer = cameraTimer = null;
+    lastFrame = null;
 }
 
 async function loadDevices() {
@@ -207,6 +216,77 @@ function showScreenings(screenings) {
         el("small", {}, ` ${new Date(s.capturedAt).toLocaleString()} · model ${s.modelVersion} · image ${s.imageId}`)));
     document.getElementById("screenings").replaceChildren(...(items.length ? items
         : [el("li", { class: "muted" }, "No screening yet.")]));
+}
+
+// ---- live camera (contract section 6a) ------------------------------------------------
+
+let cameraBusy = false;
+
+async function refreshCamera() {
+    const canvas = document.getElementById("camera");
+    if (!canvas) return stopDashboard();               // the user left the page
+    if (!deviceId || document.hidden || cameraBusy) return;   // no polling in a background tab
+    cameraBusy = true;
+    const status = document.getElementById("camera-status");
+    try {
+        const frame = await api(`/camera/${deviceId}/live`);
+        const line = liveStatus(frame);
+        status.textContent = line.text;
+        status.className = `small ${line.stale ? "warn" : "ok"}`;
+        canvas.classList.toggle("stale", line.stale);
+        const id = `${frame.device_id}:${frame.frame_id}:${frame.captured_at}`;
+        if (id !== lastFrame) {
+            lastFrame = id;
+            await drawFrame(canvas, frame);
+            showDetections(line.stale ? [] : frame.detections);
+        }
+    } catch (error) {
+        status.className = "small muted";
+        status.textContent = error.status === 404
+            ? "No live picture from this device. Start the gateway with [live] enabled = true."
+            : `Live camera unavailable: ${error.message}`;
+        showDetections([]);
+    } finally {
+        cameraBusy = false;
+    }
+}
+
+function drawFrame(canvas, frame) {
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+            canvas.width = frame.width;
+            canvas.height = frame.height;
+            const g = canvas.getContext("2d");
+            g.drawImage(image, 0, 0, frame.width, frame.height);
+            const font = Math.max(14, Math.round(frame.width / 32));
+            g.font = `600 ${font}px system-ui, sans-serif`;
+            g.lineWidth = Math.max(2, frame.width / 213);
+            for (const d of frame.detections) {
+                const { x, y, w, h } = boxPixels(d.box, frame.width, frame.height);
+                const colour = detectionColor(d.label);
+                g.strokeStyle = colour;
+                g.strokeRect(x, y, w, h);
+                const text = `${diseaseName(d.label)} ${Math.round(d.confidence * 100)}%`;
+                const textWidth = g.measureText(text).width + 8;
+                const top = y > font + 6 ? y - font - 6 : y;   // label above the box, or inside at the top
+                g.fillStyle = colour;
+                g.fillRect(x, top, textWidth, font + 6);
+                g.fillStyle = "#fff";
+                g.fillText(text, x + 4, top + font);
+            }
+            resolve();
+        };
+        image.onerror = () => resolve();
+        image.src = `data:image/jpeg;base64,${frame.image_jpeg}`;
+    });
+}
+
+function showDetections(detections) {
+    const items = detectionSummary(detections).map((d) => el("li", { class: "tag", style: `background:${detectionColor(d.label)};color:#fff` },
+        `${diseaseName(d.label)} ${Math.round(d.confidence * 100)}%${d.count > 1 ? ` ×${d.count}` : ""}`));
+    document.getElementById("camera-detections").replaceChildren(...(items.length ? items
+        : [el("li", { class: "muted small" }, "Nothing detected in this picture.")]));
 }
 
 // ---- browser notifications (FR-04) while the app is open ----------------------------

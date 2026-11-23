@@ -18,6 +18,14 @@
         <div class="card"><h3>Active alerts</h3><p id="sum-alerts" class="big">&mdash;</p></div>
     </div>
 
+    <h2>Live camera</h2>
+    <div class="card camera">
+        <canvas id="camera" width="640" height="480" aria-label="Live picture of the plants with the model's detections"></canvas>
+        <p id="camera-status" class="small muted">Waiting for the device's camera…</p>
+        <ul id="camera-detections" class="camera-tags"></ul>
+        <p class="muted small">Boxes come from the leaf-disease model on the device. They help you decide where to look; they are not a diagnosis.</p>
+    </div>
+
     <h2>Live values</h2>
     <div id="live" class="cards"></div>
 

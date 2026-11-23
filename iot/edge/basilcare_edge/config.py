@@ -50,10 +50,20 @@ class CameraConfig:
 
 @dataclass
 class ModelConfig:
-    path: str = ""                 # .tflite file; empty = no model, every screening is "review required"
-    metadata: str = ""             # JSON sidecar (labels, version); default: same name with .json
+    path: str = ""                 # .tflite file, or a YOLO NCNN export folder; empty = no model
+    metadata: str = ""             # .tflite only: JSON sidecar (labels, version); default: same name .json
     review_threshold: float = 0.7
     threads: int = 2
+    confidence: float = 0.35       # NCNN detector: boxes below this score are ignored
+    version: str = ""              # NCNN detector: name sent as model_version (default: folder name)
+
+
+@dataclass
+class LiveConfig:
+    enabled: bool = False          # live camera view in the farmer app (contract section 6a)
+    max_fps: float = 2.0
+    width: int = 640               # frames are resized to this width before detection and JPEG
+    jpeg_quality: int = 70
 
 
 @dataclass
@@ -71,6 +81,7 @@ class Config:
     pump: PumpConfig = field(default_factory=PumpConfig)
     camera: CameraConfig = field(default_factory=CameraConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
+    live: LiveConfig = field(default_factory=LiveConfig)
     sensors: list = field(default_factory=list)
     outbox_path: str = "data/outbox.sqlite3"
     outbox_max_rows: int = 100_000
@@ -112,6 +123,7 @@ def from_dict(raw, base_dir=Path(".")):
         pump=_section(PumpConfig, raw.get("pump", {})),
         camera=_section(CameraConfig, raw.get("camera", {})),
         model=_section(ModelConfig, raw.get("model", {})),
+        live=_section(LiveConfig, raw.get("live", {})),
         sensors=sensors,
         outbox_path=raw.get("storage", {}).get("outbox_path", "data/outbox.sqlite3"),
         outbox_max_rows=int(raw.get("storage", {}).get("outbox_max_rows", 100_000)),
@@ -122,6 +134,8 @@ def from_dict(raw, base_dir=Path(".")):
     def resolve(p):
         return str((base_dir / p).resolve()) if p and not Path(p).is_absolute() else p
 
+    if config.live.max_fps <= 0 or config.live.max_fps > 10:
+        raise ValueError("live.max_fps must be between 0 and 10")
     config.outbox_path = resolve(config.outbox_path)
     config.camera.images_dir = resolve(config.camera.images_dir)
     config.camera.folder_path = resolve(config.camera.folder_path)

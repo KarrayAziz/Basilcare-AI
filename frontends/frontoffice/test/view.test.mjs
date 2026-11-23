@@ -48,3 +48,21 @@ test("only new, active incidents trigger a notification; critical ones first", (
     assert.deepEqual(newIncidents(new Set(["a"]), [a, b, c]).map((i) => i.id), ["b"]);
     assert.deepEqual(sortIncidents([a, c, b]).map((i) => i.id), ["b", "c", "a"]);
 });
+
+test("live camera: boxes, colours, names, summary and staleness", async () => {
+    const { boxPixels, detectionColor, detectionSummary, diseaseName, liveStatus } = await import("../scripts/view.js");
+    assert.deepEqual(boxPixels([0.1, 0.25, 0.5, 1.2], 640, 480), { x: 64, y: 120, w: 256, h: 360 });
+    assert.equal(diseaseName("downy_mildew"), "Downy mildew");
+    assert.equal(detectionColor("healthy"), "#2e9e44");
+    assert.equal(detectionColor("something_new"), "#555");
+    assert.deepEqual(detectionSummary([
+        { label: "healthy", confidence: 0.6 }, { label: "downy_mildew", confidence: 0.7 },
+        { label: "downy_mildew", confidence: 0.4 }]),
+        [{ label: "downy_mildew", confidence: 0.7, count: 2 }, { label: "healthy", confidence: 0.6, count: 1 }]);
+    const live = liveStatus({ age_s: 0.4, model_version: "basil-detect-0.1", fps: 2.04, inference_ms: 181.6 });
+    assert.equal(live.stale, false);
+    assert.match(live.text, /2\.0 frames\/s · 182 ms/);
+    const stale = liveStatus({ age_s: 95, model_version: "m", fps: 2, inference_ms: 100 });
+    assert.equal(stale.stale, true);
+    assert.match(stale.text, /2 min/);
+});

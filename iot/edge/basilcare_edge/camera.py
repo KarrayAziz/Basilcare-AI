@@ -1,5 +1,6 @@
 """Image sources: the Raspberry Pi camera, or a folder of pictures (development and tests)."""
 import itertools
+import threading
 from pathlib import Path
 
 from PIL import Image
@@ -22,9 +23,11 @@ class PiCamera:
         if controls:
             self.camera.set_controls(dict(controls))
         self.camera.start()
+        self.lock = threading.Lock()   # the live view and the screenings share the camera
 
     def capture(self):
-        return self.camera.capture_image("main").convert("RGB")
+        with self.lock:
+            return self.camera.capture_image("main").convert("RGB")
 
     def close(self):
         self.camera.stop()
@@ -43,9 +46,12 @@ class FolderCamera:
         if not files:
             raise ValueError(f"no image in {folder}")
         self.files = itertools.cycle(files)
+        self.lock = threading.Lock()
 
     def capture(self):
-        with Image.open(next(self.files)) as image:
+        with self.lock:
+            path = next(self.files)
+        with Image.open(path) as image:
             return image.convert("RGB")
 
     def close(self):

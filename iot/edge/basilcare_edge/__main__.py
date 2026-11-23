@@ -18,14 +18,24 @@ def build(cfg):
     max_age = cfg.pump.water_level_max_age_s or 3 * cfg.interval_s   # same window as the cloud's stale rule
     guard = PumpGuard(cfg.device_id, relay, cfg.pump.max_duration_s, cfg.pump.min_water_level, max_age)
     outbox = Outbox(cfg.outbox_path, cfg.outbox_max_rows)
-    screening = None
-    if cfg.camera.enabled:
+    screening = live = None
+    if cfg.camera.enabled or cfg.live.enabled:
         from .camera import open_camera
-        from .inference import open_classifier
-        from .screening import ScreeningService
-        screening = ScreeningService(cfg.device_id, open_camera(cfg.camera), open_classifier(cfg.model),
-                                     cfg.camera.images_dir, cfg.camera.keep_images, cfg.model.review_threshold)
-    return Gateway(cfg, sensors, guard, outbox, screening)
+        from .inference import open_classifier, open_detector
+        camera = open_camera(cfg.camera)          # one camera, shared by screenings and the live view
+        detector = open_detector(cfg.model)       # YOLO NCNN model, or None
+        if cfg.camera.enabled:
+            from .screening import ScreeningService
+            screening = ScreeningService(cfg.device_id, camera, open_classifier(cfg.model, detector),
+                                         cfg.camera.images_dir, cfg.camera.keep_images, cfg.model.review_threshold)
+        if cfg.live.enabled:
+            from .live import LiveService
+            if detector is None:
+                from .detector import NoDetector
+                detector = NoDetector()
+            live = LiveService(cfg.device_id, camera, detector, cfg.live.max_fps, cfg.live.width,
+                               cfg.live.jpeg_quality)
+    return Gateway(cfg, sensors, guard, outbox, screening, live=live)
 
 
 def main(argv=None):
@@ -43,8 +53,9 @@ def main(argv=None):
     # systemd stops the service with SIGTERM: stop cleanly (pump off, status offline)
     signal.signal(signal.SIGTERM, lambda *_: gateway.stop())
     signal.signal(signal.SIGINT, lambda *_: gateway.stop())
-    logging.getLogger(__name__).info("%s starting as %s, %d sensor(s), camera %s", SOFTWARE, cfg.device_id,
-                                     len(gateway.sensors), "on" if gateway.screening else "off")
+    logging.getLogger(__name__).info("%s starting as %s, %d sensor(s), screening %s, live view %s", SOFTWARE,
+                                     cfg.device_id, len(gateway.sensors), "on" if gateway.screening else "off",
+                                     "on" if gateway.live else "off")
     gateway.run()
 
 

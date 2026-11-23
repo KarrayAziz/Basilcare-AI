@@ -78,6 +78,24 @@ def pump_state(device_id, state, until, reported_at, command_id=None, result=Non
     }, True
 
 
+def live_frame(device_id, frame_id, captured_at, model_version, width, height, jpeg_base64, detections,
+               inference_ms, fps):
+    """Live camera frame with the model's detections (contract section 6a). Never stored."""
+    return topic(device_id, "camera", "live"), {
+        "device_id": device_id,
+        "frame_id": int(frame_id),
+        "captured_at": iso(captured_at),
+        "model_version": model_version,
+        "width": int(width),
+        "height": int(height),
+        "image_jpeg": jpeg_base64,
+        "detections": [{"label": d.label, "confidence": round(float(d.confidence), 3), "box": list(d.box)}
+                       for d in detections],
+        "inference_ms": round(float(inference_ms), 1),
+        "fps": round(float(fps), 2),
+    }, False
+
+
 def screening(device_id, image_id, captured_at, model_version, label, confidence, quality_issues,
               review_required):
     return topic(device_id, "screening"), {

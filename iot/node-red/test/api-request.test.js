@@ -102,3 +102,14 @@ test("refused for good, or still failing after the last attempt: logged, not ret
     assert.equal(gaveUp.api_error.attempts, 24);
     assert.equal(context.store.failed, 3);
 });
+
+test("live camera frames go to /ingest/camera and are never retried", () => {
+    const out = toApi({ topic: `${T}/camera/live`, kind: "camera_live", payload: { frame_id: 1 } }, quietNode(), ENV);
+    assert.equal(out.url, "http://wildfly:8080/api/ingest/camera");
+    const context = freshContext();
+    const frame = (attempts = 0) => ({ path: "camera", topic: `${T}/camera/live`, body: {}, attempts });
+    assert.equal(checkAnswer({ statusCode: 201, ingest: frame() }, quietNode(), context), null);
+    assert.equal(checkAnswer({ statusCode: 503, ingest: frame() }, quietNode(), context), null);   // dropped, not retried
+    assert.equal(checkAnswer({ ingest: frame() }, quietNode(), context), null);                     // API unreachable
+    assert.deepEqual([context.store.frames, context.store.frames_dropped, context.store.ok], [1, 2, undefined]);
+});

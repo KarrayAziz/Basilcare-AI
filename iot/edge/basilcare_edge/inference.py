@@ -148,7 +148,19 @@ class NoModel:
         return Prediction("unknown", 0.0, {}, 0.0)
 
 
-def open_classifier(config):
+def open_detector(config):
+    """YOLO NCNN export folder -> NcnnDetector, else None."""
+    if config.path and Path(config.path).is_dir():
+        from .detector import NcnnDetector
+        return NcnnDetector(config.path, config.threads, config.confidence, version=config.version or None)
+    return None
+
+
+def open_classifier(config, detector=None):
+    detector = detector or open_detector(config)
+    if detector is not None:
+        from .detector import DetectorClassifier
+        return DetectorClassifier(detector)
     if not config.path:
         return NoModel()
     return LeafClassifier(config.path, config.metadata or None, config.threads)

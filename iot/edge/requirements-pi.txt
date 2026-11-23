@@ -7,3 +7,4 @@ gpiozero>=2.0                   # pump relay
 smbus2>=0.5                     # I2C bus (BME280)
 RPi.bme280>=0.2.4               # air temperature and humidity
 adafruit-circuitpython-ads1x15>=2.2,<3   # ADC for the analog pH, EC and level boards
+ncnn>=1.0.20240410             # YOLO leaf-disease detector (live view, screenings)

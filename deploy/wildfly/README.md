@@ -4,16 +4,16 @@ WildFly's Undertow subsystem serves the actual frontend files:
 
 | URL | Content |
 |---|---|
-| `/` | application chooser (`welcome/index.html`) |
-| `/farmer/` | `frontends/frontoffice/` |
-| `/admin/` | `frontends/backoffice/` |
-| `/api/` | existing API WAR |
-| `/iam/` | existing IAM WAR |
+| `https://www.basilcare.test/` | `frontends/frontoffice/` |
+| `https://admin.basilcare.test/` | `frontends/backoffice/` |
+| `https://api.basilcare.test/api/` | API WAR |
+| `https://iam.basilcare.test/iam/` | IAM WAR |
+| `https://basilcare.test/` | application chooser |
 
-This follows the professor's requirement to serve frontends through WildFly. The CLI uses
-the same file-handler and location operations as the supplied `default-host.cli` and
-`add-host.cli`, adapted to a single origin with separate paths. `add-api.cli` is unnecessary
-here: both WARs retain their existing names and context paths on the default host.
+The CLI adapts the professor's `default-host.cli` and `add-host.cli` examples into
+frontend virtual hosts and API/IAM aliases on the existing backend host. The WAR names
+and contexts stay unchanged for internal services. See [four-domain setup and migration](../../docs/four-local-domains.md)
+for hosts entries, CORS, callback URLs and compatibility details.
 
 ## Configuration and deployment
 
@@ -31,38 +31,32 @@ reapplied from Git. No public management port is needed.
 same container directories in both environments. A bare-metal installation can supply
 its own properties file via `BASILCARE_HOSTING_PROPERTIES` when invoking `start.sh`.
 
-Open:
-
-- <https://basilcare.test/farmer/>
-- <https://basilcare.test/admin/>
-
-On another domain, set `PUBLIC_ORIGIN=https://your-domain.example` without a trailing slash
-and `TLS_HOSTNAME=your-domain.example` in `deploy/.env`, then recreate the WildFly service. Compose
-derives the exact registered IAM return addresses (`PUBLIC_ORIGIN/farmer/` and
-`PUBLIC_ORIGIN/admin/`) and allowed browser origin. `StartupData` updates existing tenant
-records from this configuration at startup.
+Open <https://www.basilcare.test/> and <https://admin.basilcare.test/>.
+For another domain or port, set `TLS_HOSTNAME`, `PUBLIC_ORIGIN`, `FARMER_ORIGIN` and
+`ADMIN_ORIGIN` together in `deploy/.env`, then recreate WildFly. IAM startup updates
+its two registered return addresses from Compose configuration.
 
 ## HTTPS
 
 `start.sh` creates a self-signed certificate on first start (`keytool`, RSA 2048, 397 days,
-SAN `TLS_HOSTNAME`, `localhost`, `127.0.0.1`) in `/opt/jboss/wildfly/certs`, a named volume, so it
+SAN base domain, `www`, `admin`, `api`, `iam`, `localhost`, `127.0.0.1`) in `/opt/jboss/wildfly/certs`, a named volume, so it
 survives restarts and container replacement and only has to be trusted once. It is replaced
-only when `TLS_HOSTNAME` or `TLS_KEYSTORE_PASSWORD` changes. A keystore placed there by an
+when its hostname set or `TLS_KEYSTORE_PASSWORD` changes. The first upgrade to four
+names also regenerates an older generated certificate; trust the replacement again. A keystore placed there by an
 operator (a CA-issued certificate) is never overwritten. `configure.cli` adds the Elytron
 `basilcareKS` key store, `basilcareKM` key manager and `basilcareSSC` SSL context (TLS 1.3/1.2)
 and attaches it to Undertow's `https` listener (8443, published as host port 443). The keystore
 password stays an expression (`${env.TLS_KEYSTORE_PASSWORD}`) resolved from the container
 environment, so it is never written into `standalone.xml`.
 
-The browser must resolve the name: add `127.0.0.1  basilcare.test` to `/etc/hosts` (macOS/Linux)
+The browser must resolve the name: add all five names listed in the four-domain guide to `/etc/hosts` (macOS/Linux)
 or `C:\Windows\System32\drivers\etc\hosts` (Windows, as administrator); the root `start.sh` offers to.
 Trusting `deploy/certs/basilcare.crt` (macOS keychain / Windows user root store; `start.sh` offers
-to) removes the browser warning. Without it, sign-in works after accepting the warning, but
-service workers, and therefore installation and offline use, do not.
+to) removes the browser warning. Trust is needed for cross-origin API/IAM requests as well as PWA installation and offline use.
 
 These scripts do not create DNS records or CA-issued certificates. A production TLS proxy may
 terminate HTTPS instead, but it must forward the frontend files to WildFly too, and preserve
-`/farmer/`, `/admin/`, `/api/` and `/iam/`. It must preserve the public Host and scheme;
+the application Host headers and the `/api/` and `/iam/` contexts. It must preserve the public Host and scheme;
 configure WildFly's listener proxy forwarding only behind a trusted proxy if necessary.
 Do not expose HTTP-only PWAs on a public IP: service workers and browser cryptography need
 HTTPS outside localhost. The previous Live Server ports 5500/5501 are no longer configured.
@@ -80,8 +74,8 @@ HTTPS outside localhost. The previous Live Server ports 5500/5501 are no longer 
 - Routes use URL hashes, so no catch-all 404 rewrite is needed. Missing scripts must remain
   404 responses rather than receiving an HTML fallback.
 
-The two apps share an origin, so this is logical UI/storage separation, not an additional
-security boundary. The API and IAM continue to enforce roles and signatures.
+The two apps use separate browser origins. Backend aliases share their host; hostnames
+do not replace authorization. The API and IAM continue to enforce roles and signatures.
 
 ## Verification
 

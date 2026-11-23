@@ -9,5 +9,14 @@
     <h1>BasilCare</h1>
     <p><a href="/farmer/">Open the Farmer application</a></p>
     <p><a href="/admin/">Open the Admin application</a></p>
+    <script>
+        const domain = location.hostname.replace(/^(api|iam|www|admin)\./, "");
+        for (const [path, prefix] of [["/farmer/", "www"], ["/admin/", "admin"]]) {
+            const url = new URL(location.origin);
+            url.hostname = `${prefix}.${domain}`;
+            url.pathname = "/";
+            document.querySelector(`a[href="${path}"]`).href = url.href;
+        }
+    </script>
 </body>
 </html>

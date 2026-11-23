@@ -72,6 +72,6 @@ if [ "$SMOKE" = 1 ]; then
     set -a; . deploy/.env; set +a
     python3 deploy/smoke_test.py --password "$ADMIN_PASSWORD" \
         --api "${PUBLIC_ORIGIN:-https://basilcare.test}" \
-        --redirect-uri "${PUBLIC_ORIGIN:-https://basilcare.test}/admin/"
+        --redirect-uri "${ADMIN_ORIGIN:-https://admin.basilcare.test}/"
 fi
 echo "== deployed"

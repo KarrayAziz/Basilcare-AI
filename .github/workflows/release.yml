@@ -91,7 +91,7 @@ jobs:
       - name: Start the published image exactly as start.sh does
         run: |
           export BASILCARE_VERSION="sha-${GITHUB_SHA::7}"
-          echo "127.0.0.1 basilcare.test" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 basilcare.test www.basilcare.test admin.basilcare.test api.basilcare.test iam.basilcare.test" | sudo tee -a /etc/hosts
           docker compose -f deploy/compose.yaml pull mongodb wildfly
           docker compose -f deploy/compose.yaml up -d --no-build --no-deps mongodb wildfly
       - name: HTTPS, PWAs and sign-in work

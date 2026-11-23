@@ -23,21 +23,22 @@ test("both apps keep their own redirect paths, PKCE secrets and login sessions",
     const modules = {};
     try {
         for (const app of ["farmer", "admin"]) {
-            const root = `${origin}/${app}/`;
+            const root = `https://${app === "farmer" ? "www" : "admin"}.basilcare.example/`;
             const source = await fs.readFile(new URL(`../../${folders[app]}/scripts/auth.js`, import.meta.url), "utf8");
             const code = source.replaceAll("import.meta.url", JSON.stringify(root + "scripts/auth.js"));
             const auth = await import("data:text/javascript;base64," + Buffer.from(code).toString("base64"));
             modules[app] = auth;
+            assert.equal(auth.API, "https://api.basilcare.example/api");
             await auth.signIn();
             const login = new URL(destination);
-            assert.equal(login.origin + login.pathname, origin + "/iam/authorize");
+            assert.equal(login.origin + login.pathname, "https://iam.basilcare.example/iam/authorize");
             assert.equal(login.searchParams.get("redirect_uri"), root);
             const pending = JSON.parse(saved.get(`basilcare-pwa-${app}.pkce`));
             window.location.search = "?" + new URLSearchParams({ code: "test-code", state: pending.state });
             const token = Buffer.from(JSON.stringify({ exp: 4102444800 })).toString("base64url");
             const pass = `header.${token}.${app}`;
             globalThis.fetch = async (address, request) => {
-                assert.equal(address, origin + "/iam/oauth/token");
+                assert.equal(address, "https://iam.basilcare.example/iam/oauth/token");
                 assert.equal(request.body.get("redirect_uri"), root);
                 assert.equal(request.body.get("code_verifier"), pending.verifier);
                 return { ok: true, json: async () => ({ access_token: pass }) };
@@ -49,11 +50,11 @@ test("both apps keep their own redirect paths, PKCE secrets and login sessions",
         }
         assert.notEqual(modules.farmer.token(), modules.admin.token());
         modules.farmer.signOut();
-        assert.equal(destination, origin + "/farmer/");
+        assert.equal(destination, "https://www.basilcare.example/");
         assert.equal(modules.farmer.token(), null);
         assert.notEqual(modules.admin.token(), null, "Farmer logout must preserve the Admin session");
         modules.admin.signOut();
-        assert.equal(destination, origin + "/admin/");
+        assert.equal(destination, "https://admin.basilcare.example/");
     } finally {
         globalThis.fetch = originalFetch;
         delete globalThis.window;
@@ -63,7 +64,7 @@ test("both apps keep their own redirect paths, PKCE secrets and login sessions",
 
 for (const app of ["farmer", "admin"]) {
     test(`${app} offline cache stays inside its path and preserves the other app's cache`, async () => {
-        const scope = `${origin}/${app}/`;
+        const scope = `https://${app === "farmer" ? "www" : "admin"}.basilcare.example/`;
         const other = app === "farmer" ? "admin" : "farmer";
         const handlers = {};
         let cached;
@@ -91,8 +92,9 @@ for (const app of ["farmer", "admin"]) {
         handlers.activate({ waitUntil: (promise) => { pending = promise; } });
         await pending;
         assert.deepEqual(deleted, [`basilcare-${app}-v0`]);
-        for (const pathname of ["/api/me", "/iam/oauth/token", `/${other}/index.html`]) {
-            handlers.fetch({ request: { method: "GET", url: origin + pathname },
+        for (const url of ["https://api.basilcare.example/api/me", "https://iam.basilcare.example/iam/oauth/token",
+                           `https://${other === "farmer" ? "www" : "admin"}.basilcare.example/index.html`]) {
+            handlers.fetch({ request: { method: "GET", url },
                 respondWith: () => assert.fail("worker intercepted another app or a backend request") });
         }
         handlers.fetch({ request: { method: "GET", url: scope + "pages/welcome.html" },
@@ -103,3 +105,17 @@ for (const app of ["farmer", "admin"]) {
         assert.equal(new URL(manifest.scope, scope).href, scope);
     });
 }
+
+
+test("sibling service names preserve a custom domain and HTTPS port", async () => {
+    const source = await fs.readFile(new URL("../scripts/auth.js", import.meta.url), "utf8");
+    for (const [root, expected] of [
+        ["https://www.farm.example:9443/", "https://api.farm.example:9443/api"],
+        ["https://admin.farm.example:9443/", "https://api.farm.example:9443/api"],
+        ["http://localhost:8080/farmer/", "http://localhost:8080/api"],
+    ]) {
+        const code = source.replaceAll("import.meta.url", JSON.stringify(root + "scripts/auth.js"));
+        const auth = await import("data:text/javascript;base64," + Buffer.from(code).toString("base64"));
+        assert.equal(auth.API, expected);
+    }
+});

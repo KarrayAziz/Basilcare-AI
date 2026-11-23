@@ -1,8 +1,18 @@
 // OAuth 2.0 authorization code + PKCE against the BasilCare IAM.
+// The two frontends use sibling API/IAM names. Preserve a custom HTTPS port.
+const appRoot = new URL("../", import.meta.url);
+const service = (name, path) => {
+    const url = new URL(path, appRoot);
+    if (/^(www|admin)\./.test(appRoot.hostname)) {
+        url.hostname = appRoot.hostname.replace(/^(www|admin)\./, `${name}.`);
+    }
+    return url.href;
+};
+export const API = service("api", "/api");
 const config = {
     clientId: "basilcare-pwa-farmer",
-    iam: new URL("/iam", window.location.origin).href,
-    redirectUri: new URL("../", import.meta.url).href,   // /farmer/; must equal tenant.farmer.redirect
+    iam: service("iam", "/iam"),
+    redirectUri: appRoot.href,   // must equal tenant.farmer.redirect
 };
 
 const base64url = (bytes) =>

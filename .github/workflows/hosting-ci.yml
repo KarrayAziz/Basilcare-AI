@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   verify-hosting:
-    runs-on: ubuntu-latest
+    # Keep the Chromium dependency installer on a supported, predictable distribution.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       BASE: https://basilcare.test

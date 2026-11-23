@@ -1,6 +1,6 @@
 # Backoffice — Admin PWA
 
-Served by WildFly at <http://localhost:8080/admin/>. Start the Compose stack as documented
+Served by WildFly at <https://basilcare.test/admin/>. Start the Compose stack as documented
 in [deploy/](../../deploy/README.md); no separate frontend server is required.
 
 The app uses `/api` and `/iam` on the current origin, returns to `/admin/` after login,

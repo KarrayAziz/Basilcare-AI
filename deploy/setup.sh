@@ -29,6 +29,7 @@ if [ ! -f deploy/.env ]; then
     sed -e "s|^INGEST_KEY=.*|INGEST_KEY=$(random)|" \
         -e "s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=$(random)|" \
         -e "s|^NODE_RED_CREDENTIAL_SECRET=.*|NODE_RED_CREDENTIAL_SECRET=$(random)|" \
+        -e "s|^TLS_KEYSTORE_PASSWORD=.*|TLS_KEYSTORE_PASSWORD=$(random)|" \
         deploy/.env.example > deploy/.env
     chmod 600 deploy/.env
     echo "created deploy/.env; the IAM admin password is in it (ADMIN_PASSWORD)"
@@ -45,6 +46,7 @@ cat <<EOF
 
 Done. Next:
   1. log out and in again (docker group), then:  cd $TARGET && bash deploy/deploy.sh
-  2. BEFORE exposing ports 1880, 1883 or 8080 publicly: TLS reverse proxy, Mosquitto TLS +
+  2. set PUBLIC_ORIGIN and TLS_HOSTNAME in deploy/.env to the server's DNS name (WildFly serves HTTPS on 443)
+  3. BEFORE exposing ports 1880 or 1883 publicly: Mosquitto TLS +
      per-device logins + ACL (docs/mqtt-contract.md §9), NODE_RED_ADMIN_HASH in deploy/.env.
 EOF

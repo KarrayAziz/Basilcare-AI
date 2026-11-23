@@ -2,10 +2,10 @@ name: WildFly PWA hosting CI
 
 on:
   pull_request:
-    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".github/workflows/hosting-ci.yml"]
+    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".dockerignore", ".github/workflows/hosting-ci.yml"]
   push:
     branches: [main]
-    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".github/workflows/hosting-ci.yml"]
+    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".dockerignore", ".github/workflows/hosting-ci.yml"]
 
 permissions:
   contents: read
@@ -13,7 +13,9 @@ permissions:
 jobs:
   verify-hosting:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      BASE: https://basilcare.test
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -31,33 +33,23 @@ jobs:
         run: |
           mvn --batch-mode --no-transfer-progress --file middleware/iam/pom.xml verify
           mvn --batch-mode --no-transfer-progress --file middleware/api/pom.xml verify
+      - name: Build the production WildFly image
+        run: docker compose -p hosting-ci -f deploy/compose.yaml build wildfly
+      - name: Resolve basilcare.test like a laptop's hosts file
+        run: echo "127.0.0.1 basilcare.test" | sudo tee -a /etc/hosts
       - name: Start isolated MongoDB and WildFly services
-        run: docker compose -p hosting-ci -f deploy/compose.yaml up -d --no-deps mongodb wildfly
-      - name: Wait for deployments and verify static hosting and PKCE
+        run: docker compose -p hosting-ci -f deploy/compose.yaml up -d --no-build --no-deps mongodb wildfly
+      - name: Verify HTTPS, static hosting and PKCE against the self-signed certificate
         run: |
-          ready=false
-          for attempt in {1..60}; do
-            if curl -fsS http://localhost:8080/api/health >/dev/null && curl -fsS http://localhost:8080/iam/jwk >/dev/null; then
-              ready=true
-              break
-            fi
-            sleep 3
-          done
-          "$ready" || { echo "WildFly did not become ready"; exit 1; }
-          python3 deploy/hosting_smoke_test.py
-      - name: Verify configuration survives a restart
+          bash deploy/wait_ready.sh "$BASE"
+          mkdir -p deploy/certs
+          docker compose -p hosting-ci -f deploy/compose.yaml cp wildfly:/opt/jboss/wildfly/certs/basilcare.crt deploy/certs/basilcare.crt
+          python3 deploy/hosting_smoke_test.py --base "$BASE" --cafile deploy/certs/basilcare.crt
+      - name: Verify configuration and certificate survive a restart
         run: |
           docker compose -p hosting-ci -f deploy/compose.yaml restart wildfly
-          ready=false
-          for attempt in {1..60}; do
-            if curl -fsS http://localhost:8080/api/health >/dev/null && curl -fsS http://localhost:8080/iam/jwk >/dev/null; then
-              ready=true
-              break
-            fi
-            sleep 3
-          done
-          "$ready" || { echo "WildFly did not restart"; exit 1; }
-          python3 deploy/hosting_smoke_test.py
+          bash deploy/wait_ready.sh "$BASE"
+          python3 deploy/hosting_smoke_test.py --base "$BASE" --cafile deploy/certs/basilcare.crt
       - name: Service logs
         if: always()
         run: docker compose -p hosting-ci -f deploy/compose.yaml logs --tail=160 wildfly mongodb

@@ -32,4 +32,20 @@ else
     /subsystem=undertow/server=default-server/host=default-host/location=\/admin:write-attribute(name=handler,value=admin-content)
 end-if
 
+# HTTPS on the https listener (8443) with the keystore start.sh creates or an operator supplies.
+# The password stays an expression, resolved by WildFly from the container environment.
+set keystorePath=`:resolve-expression(expression=${tls.keystore})`
+if (outcome != success) of /subsystem=elytron/key-store=basilcareKS:read-resource
+    /subsystem=elytron/key-store=basilcareKS:add(path=$keystorePath,type=PKCS12,credential-reference={clear-text="${env.TLS_KEYSTORE_PASSWORD:changeit}"})
+else
+    /subsystem=elytron/key-store=basilcareKS:write-attribute(name=path,value=$keystorePath)
+end-if
+if (outcome != success) of /subsystem=elytron/key-manager=basilcareKM:read-resource
+    /subsystem=elytron/key-manager=basilcareKM:add(key-store=basilcareKS,credential-reference={clear-text="${env.TLS_KEYSTORE_PASSWORD:changeit}"})
+end-if
+if (outcome != success) of /subsystem=elytron/server-ssl-context=basilcareSSC:read-resource
+    /subsystem=elytron/server-ssl-context=basilcareSSC:add(key-manager=basilcareKM,protocols=["TLSv1.3","TLSv1.2"])
+end-if
+/subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=ssl-context,value=basilcareSSC)
+
 stop-embedded-server

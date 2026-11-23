@@ -1,6 +1,6 @@
 # Frontoffice — Farmer PWA
 
-Served by WildFly at <http://localhost:8080/farmer/>. Start the Compose stack as documented
+Served by WildFly at <https://basilcare.test/farmer/>. Start the Compose stack as documented
 in [deploy/](../../deploy/README.md); no separate frontend server is required.
 
 The app uses `/api` and `/iam` on the current origin, returns to `/farmer/` after login,

@@ -9,7 +9,10 @@ Checks, against a real WildFly + MongoDB + Mosquitto + Node-RED + simulator:
   6. an unsafe pump command (too long) is rejected by the safety policy and audited
 
 Usage (stack running, simulator started with --fault ph-drift on basil-sim-01):
-    python deploy/smoke_test.py [--api http://localhost:8080] [--password change-me-now]
+    python deploy/smoke_test.py [--api https://basilcare.test] [--password change-me-now]
+
+The stack's self-signed certificate is trusted through --cafile (default: deploy/certs/basilcare.crt,
+which start.sh copies out of the WildFly container).
 
 Standard library only, so it runs anywhere Python 3.10+ is installed.
 """
@@ -17,7 +20,9 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import secrets
+import ssl
 import sys
 import time
 import urllib.error
@@ -26,6 +31,18 @@ import urllib.request
 
 DEVICE = "basil-sim-01"
 CLIENT = "basilcare-pwa-admin"
+DEFAULT_BASE = "https://basilcare.test"
+DEFAULT_CAFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "certs", "basilcare.crt")
+SSL_CONTEXT = None
+
+
+def trust(cafile):
+    """Verify HTTPS against this certificate file (the stack's self-signed certificate)."""
+    global SSL_CONTEXT
+    if cafile and os.path.exists(cafile):
+        SSL_CONTEXT = ssl.create_default_context(cafile=cafile)
+    elif cafile and cafile != DEFAULT_CAFILE:
+        raise SystemExit(f"certificate file not found: {cafile}")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -45,7 +62,7 @@ def call(method, url, token=None, body=None, form=None, expect=None):
         headers["Content-Type"] = "application/x-www-form-urlencoded"
         data = urllib.parse.urlencode(form).encode()
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
-    opener = urllib.request.build_opener(NoRedirect)
+    opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=SSL_CONTEXT))
     try:
         with opener.open(request, timeout=15) as response:
             status, text, location = response.status, response.read().decode(), response.headers.get("Location")
@@ -93,11 +110,13 @@ def step(text):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--api", default="http://localhost:8080")
+    parser.add_argument("--api", default=DEFAULT_BASE)
+    parser.add_argument("--cafile", default=DEFAULT_CAFILE, help="certificate to trust for HTTPS")
     parser.add_argument("--password", default="change-me-now", help="ADMIN_PASSWORD of the IAM")
     parser.add_argument("--redirect-uri", help="Registered Admin return URL if different from --api/admin/")
     args = parser.parse_args()
     api = args.api.rstrip("/")
+    trust(args.cafile)
 
     token = sign_in(api, args.password, args.redirect_uri)
     step("signed in as admin (authorization code + PKCE)")

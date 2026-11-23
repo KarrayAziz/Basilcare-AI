@@ -1,7 +1,7 @@
 """Verify real WildFly static hosting and PKCE login without sensors or Node-RED.
 
 Run with WildFly and MongoDB running:
-    python3 deploy/hosting_smoke_test.py --base http://localhost:8080 --password change-me-now
+    python3 deploy/hosting_smoke_test.py --base https://basilcare.test --password change-me-now
 Standard library only. This reads assets and signs in; it does not change user/device data.
 """
 import argparse
@@ -10,7 +10,7 @@ import hashlib
 import secrets
 import urllib.parse
 
-from smoke_test import call
+from smoke_test import DEFAULT_BASE, DEFAULT_CAFILE, call, trust
 
 
 def check(base, password, public_origin=None, static_only=False):
@@ -60,10 +60,12 @@ def check(base, password, public_origin=None, static_only=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base", default="http://localhost:8080")
+    parser.add_argument("--base", default=DEFAULT_BASE)
+    parser.add_argument("--cafile", default=DEFAULT_CAFILE, help="certificate to trust for HTTPS")
     parser.add_argument("--password", default="change-me-now")
     parser.add_argument("--public-origin", help="Registered public origin if it differs from --base")
     parser.add_argument("--static-only", action="store_true", help="Skip login; check only serving/assets")
     args = parser.parse_args()
+    trust(args.cafile)
     check(args.base.rstrip("/"), args.password,
           args.public_origin.rstrip("/") if args.public_origin else None, args.static_only)

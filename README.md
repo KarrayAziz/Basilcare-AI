@@ -50,26 +50,44 @@ See the [migration notes](docs/repository-structure.md) when updating an existin
 | [`postman/`](postman/README.md) | API collection (28 requests, OAuth 2.0 PKCE) | 🟡 not yet run in Postman |
 | [`iot/ai/service/`](iot/ai/service/README.md) | RAG assistant, MCP tools, LLMOps | ⬜ next |
 
-## Quick start (laptop, Docker Desktop, JDK 25, Maven, Python 3.11+)
+## Quick start (macOS, Linux or Windows; only Docker Desktop needed)
+
+```bash
+git clone https://github.com/KarrayAziz/Basilcare-AI.git && cd Basilcare-AI
+bash start.sh
+```
+
+`start.sh` downloads the tested images that CI publishes for Intel and Apple Silicon, creates
+`deploy/.env` with random secrets, and starts MongoDB, Mosquitto, Node-RED, WildFly and a
+virtual Raspberry Pi. On the first run it asks (each needs your password):
+
+1. to add `127.0.0.1  basilcare.test` to the hosts file (`/etc/hosts` on macOS,
+   `C:\Windows\System32\drivers\etc\hosts` on Windows), so the site has a real name;
+2. to trust the self-signed HTTPS certificate WildFly generated (`deploy/certs/basilcare.crt`),
+   so the browser shows no warning and the PWAs can be installed and used offline.
+
+Then open:
+
+- Farmer: <https://basilcare.test/farmer/>
+- Admin: <https://basilcare.test/admin/>
+- Application chooser: <https://basilcare.test/>
+
+Sign in as `admin` with the password `start.sh` prints (`ADMIN_PASSWORD` in `deploy/.env`).
+`bash stop.sh` stops everything; `bash stop.sh --reset` also deletes the data.
+
+### Developing (JDK 25, Maven, Python 3.11+)
 
 ```bash
 (cd middleware/iam && mvn -q package) && (cd middleware/api && mvn -q package)
 export MSYS_NO_PATHCONV=1                                   # Git Bash only
-docker compose -f deploy/compose.yaml up -d                 # MongoDB, Mosquitto, Node-RED, WildFly
-python -m venv iot/simulator/.venv && iot/simulator/.venv/Scripts/pip install -r iot/simulator/requirements.txt
-iot/simulator/.venv/Scripts/python iot/simulator/simulator.py --fault ph-drift &
-python deploy/smoke_test.py                                 # end-to-end check, prints SMOKE TEST PASSED
+docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml up -d --build   # local WARs and frontends, live
+python deploy/smoke_test.py --password change-me-now        # end-to-end check, prints SMOKE TEST PASSED
 ```
 
-WildFly serves both PWAs directly; no Live Server is required:
-
-- Farmer: <http://localhost:8080/farmer/>
-- Admin: <http://localhost:8080/admin/>
-- Application chooser: <http://localhost:8080/>
-
-Sign in as `admin` / `change-me-now` on a fresh development database (or use the password
-configured in `deploy/.env`). See [WildFly hosting](deploy/wildfly/README.md) for the CLI
-configuration, production settings and offline/login isolation.
+The dev override mounts your locally built WARs and the frontend folders, so frontend edits
+are live and a Java change needs only `docker compose -f deploy/compose.yaml restart wildfly`.
+See [WildFly hosting](deploy/wildfly/README.md) for the CLI configuration, HTTPS and
+offline/login isolation.
 
 ## Tests
 
@@ -82,4 +100,8 @@ configuration, production settings and offline/login isolation.
 | Whole stack | `python deploy/smoke_test.py` |
 | WildFly hosting and both PKCE redirects | `python deploy/hosting_smoke_test.py` |
 
-CI runs the first four on every pull request (`.github/workflows/`).
+CI runs the first four on every pull request (`.github/workflows/`). The hosting CI builds the
+production image and checks HTTPS, the PWAs and sign-in. On every push to `main`,
+[`release.yml`](.github/workflows/release.yml) tests everything, publishes the WildFly image to
+GitHub Container Registry (`ghcr.io/karrayaziz/basilcare-wildfly`, `latest` and `sha-<commit>`),
+then starts the published image and checks it again. A `v*` tag also creates a GitHub Release.

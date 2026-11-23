@@ -48,7 +48,7 @@ See the [migration notes](docs/repository-structure.md) when updating an existin
 | [`frontends/frontoffice/`](frontends/frontoffice/README.md), [`frontends/backoffice/`](frontends/backoffice/README.md) | installable PWAs: live dashboard, alerts, pump, screening / registry, alert ranges, audit | 🟡 needs a browser check |
 | [`deploy/`](deploy/README.md) | Compose stack, broker config, `.env.example`, `setup.sh`, `deploy.sh`, [end-to-end smoke test](deploy/smoke_test.py) | ✅ smoke test passes |
 | [`postman/`](postman/README.md) | API collection (28 requests, OAuth 2.0 PKCE) | 🟡 not yet run in Postman |
-| [`iot/ai/service/`](iot/ai/service/README.md) | RAG assistant, MCP tools, LLMOps | ⬜ next |
+| [`iot/ai/service/`](iot/ai/service/README.md) | cited CLI assistant, local Ollama adapter, initial traces/evaluation | 🟡 foundation; real-model evaluation, PWA/MCP integration and full LLMOps remain |
 
 ## Quick start (macOS, Linux or Windows; only Docker Desktop needed)
 
@@ -102,6 +102,7 @@ offline/login isolation.
 | Whole stack | `python deploy/smoke_test.py` |
 | WildFly hosting and both PKCE redirects | `python deploy/hosting_smoke_test.py` |
 | Model dataset audit, provenance and quality checks | `python -m unittest discover -s iot/ai/model/tests -v` (install `iot/ai/model/requirements-mlops.txt`) |
+| Cited assistant foundation | `python -m unittest discover -s iot/ai/service/tests -v` (standard library only) |
 
 See the [MLOps run guide](iot/ai/model/MLOPS.md) for dataset checks and an explicit training
 pipeline around the existing YOLO scripts. Model CI uses artificial fixtures; it does not

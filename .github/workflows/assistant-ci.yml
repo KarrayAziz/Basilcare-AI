@@ -1,0 +1,36 @@
+name: Assistant foundation CI
+
+on:
+  pull_request:
+    paths: ["iot/ai/service/**", ".github/workflows/assistant-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["iot/ai/service/**", ".github/workflows/assistant-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-assistant:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Test retrieval, source validation, Ollama protocol and metadata privacy
+        run: python -m unittest discover -s iot/ai/service/tests -v
+      - name: Run the explicit no-model regression baseline
+        working-directory: iot/ai/service
+        run: python -m basilcare_assistant evaluate --mode extractive --out /tmp/assistant-baseline
+      - name: Publish baseline reports (not actual LLM quality measurements)
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-extractive-baseline
+          if-no-files-found: error
+          path: |
+            /tmp/assistant-baseline/evaluation.json
+            /tmp/assistant-baseline/evaluation.md
+            /tmp/assistant-baseline/traces.jsonl

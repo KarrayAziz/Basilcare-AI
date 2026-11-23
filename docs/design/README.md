@@ -47,6 +47,6 @@ Each choice has a short decision record in [`../decisions/`](../decisions/).
 
 ## Still to design
 
-- `iot/ai/service/`: RAG corpus and index, MCP server (tools call the API with the user's token, so the same roles and the same pump policy apply), LLMOps traces and evaluation set.
+- `iot/ai/service/`: the cited CLI knowledge base, local Ollama adapter and initial traces/regression cases now exist. PWA integration, real-model evaluation and the MCP server remain pending (tools must call the API with the user's token and preserve the same role/pump safety rules).
 - FR-09 reports: water consumption, uptime and alert frequency, computed with MongoDB aggregations.
 - Production deployment: TLS proxy, Mosquitto TLS + per-device logins + ACL (contract §9), Web Push notifications.

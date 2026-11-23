@@ -4,8 +4,10 @@ Everything needed to run BasilCare: the Docker Compose stack, the broker configu
 
 | File | Role |
 |---|---|
-| [`compose.yaml`](compose.yaml) | MongoDB, Mosquitto, Node-RED, WildFly (both PWAs, `iam.war` and `api.war`) |
-| [`wildfly/`](wildfly/README.md) | repeatable CLI configuration and development/production properties for serving the PWAs |
+| [`compose.yaml`](compose.yaml) | production stack: MongoDB, Mosquitto, Node-RED, the published WildFly image over HTTPS, optional simulator (`--profile demo`) |
+| [`compose.dev.yaml`](compose.dev.yaml) | development override: mounts your local WARs and frontend folders into WildFly |
+| [`wildfly/`](wildfly/README.md) | `Dockerfile` of the image, repeatable CLI configuration (PWAs + HTTPS) and hosting properties |
+| [`wait_ready.sh`](wait_ready.sh) | waits until WildFly serves the API and the IAM keys (used by `start.sh` and CI) |
 | [`mosquitto/mosquitto.conf`](mosquitto/mosquitto.conf) | development broker: anonymous on 1883, **persistence on**, so sessions and queued messages survive a restart |
 | [`.env.example`](.env.example) | the secrets to set in `deploy/.env` (git-ignored): `INGEST_KEY`, `ADMIN_PASSWORD`, Node-RED keys |
 | [`setup.sh`](setup.sh) | one-time preparation of an Ubuntu VM: Docker, `git clone`, random secrets, firewall |
@@ -16,22 +18,34 @@ Everything needed to run BasilCare: the Docker Compose stack, the broker configu
 ## Why it is organised this way
 
 - **Secrets only in `deploy/.env`.** The compose file has development defaults after `:-`, and `setup.sh` generates random production values. `git grep -i password` finds only placeholders.
-- **Builds happen on the server, from Git.** The professor's rule (scope §6.1) is clone once, then pull. No WAR is copied by hand, and the tests run during every deployment.
+- **One image, built by CI or from Git.** `release.yml` tests and publishes the WildFly image (WARs + PWAs + configuration) for amd64 and arm64, so a laptop needs only Docker (`bash start.sh` at the repository root). A server can still build from its own checkout (`deploy.sh`, scope §6.1: clone once, then pull); no WAR is copied by hand.
+- **HTTPS by default.** WildFly serves `https://basilcare.test` (`TLS_HOSTNAME`) with a self-signed certificate it creates on first start and keeps in a volume; plain HTTP 8080 is bound to 127.0.0.1 for health checks only.
 - **Broker persistence.** Without it, a broker restart forgets Node-RED's persistent session, and the readings a Pi sends right after the restart (its offline backlog) are dropped. The edge outage test measured 8 lost readings without persistence and none with it.
 
 ## How to use it
+
+### Demo / evaluation (any laptop with Docker)
+
+```bash
+bash start.sh            # from the repository root; see the root README
+```
 
 ### Development (laptop)
 
 ```bash
 (cd middleware/iam && mvn -q package) && (cd middleware/api && mvn -q package)
 export MSYS_NO_PATHCONV=1                                  # Git Bash only
-docker compose -f deploy/compose.yaml up -d
-curl localhost:8080/api/health
-python deploy/hosting_smoke_test.py                       # assets and both login flows
-python iot/simulator/simulator.py --fault ph-drift             # in its venv, see iot/simulator/README.md
-python deploy/smoke_test.py                                # signs in as admin / change-me-now
+docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml --profile demo up -d --build
+bash deploy/wait_ready.sh
+mkdir -p deploy/certs && docker compose -f deploy/compose.yaml cp wildfly:/opt/jboss/wildfly/certs/basilcare.crt deploy/certs/
+python deploy/hosting_smoke_test.py                       # HTTPS, assets and both login flows
+python deploy/smoke_test.py                                # full demo path (simulator runs in the demo profile)
 ```
+
+Both tests default to `https://basilcare.test` and trust `deploy/certs/basilcare.crt`. Without the
+hosts entry use `--base https://localhost --public-origin https://basilcare.test` (hosting test) or
+`--api https://localhost --redirect-uri https://basilcare.test/admin/` (smoke test). If a local
+MongoDB already uses port 27017, set `MONGO_PORT=27018`.
 
 Expected end of the smoke test:
 
@@ -45,8 +59,8 @@ SMOKE TEST PASSED
 
 After changing Java code, rebuild the WAR and run `docker compose -f deploy/compose.yaml restart wildfly`.
 
-Open <http://localhost:8080/farmer/> and <http://localhost:8080/admin/>. WildFly serves the
-frontend folders through read-only mounts. CLI configuration is reapplied on every start,
+Open <https://basilcare.test/farmer/> and <https://basilcare.test/admin/>. With the dev override,
+WildFly serves the frontend folders through read-only mounts. CLI configuration is reapplied on every start,
 including a new container; no manual server edits are required. Authentication returns to
 the app's own path. Frontend file edits are available immediately; refresh/update the service
 worker when testing an already installed app.
@@ -58,10 +72,11 @@ bash setup.sh https://github.com/KarrayAziz/Basilcare-AI.git   # once
 bash deploy/deploy.sh                                          # every update
 ```
 
-Ports 1880 (Node-RED editor), 1883 (MQTT without TLS) and 8080 (WildFly) are for development only. Before exposing the server, put a TLS reverse proxy in front of WildFly, configure Mosquitto TLS with per-device logins and the ACL of contract §9, and set `NODE_RED_ADMIN_HASH`.
+WildFly serves HTTPS on port 443. Set `PUBLIC_ORIGIN=https://your-domain.example` (no trailing
+slash) and `TLS_HOSTNAME=your-domain.example` in `deploy/.env` before recreating the WildFly
+container. The generated certificate is self-signed; for a public server, place a CA-issued
+PKCS12 keystore at `/opt/jboss/wildfly/certs/basilcare.p12` in the `wildfly-certs` volume (it is
+never overwritten), or put a TLS proxy in front as described in the
+[hosting deployment notes](wildfly/README.md).
 
-Set `PUBLIC_ORIGIN=https://your-domain.example` (no trailing slash) and `HOSTING_ENV=prod`
-in `deploy/.env` before recreating the WildFly container. The TLS proxy must forward
-`/farmer/`, `/admin/`, `/api/` and `/iam/` to WildFly without stripping their prefixes.
-It must preserve the public Host and HTTPS scheme for login redirects. See
-[hosting deployment notes](wildfly/README.md) for details.
+Ports 1880 (Node-RED editor) and 1883 (MQTT without TLS) are for development only. Before exposing the server, configure Mosquitto TLS with per-device logins and the ACL of contract §9, and set `NODE_RED_ADMIN_HASH`.

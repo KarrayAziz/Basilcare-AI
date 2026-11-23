@@ -17,8 +17,11 @@ here: both WARs retain their existing names and context paths on the default hos
 
 ## Configuration and deployment
 
-Compose mounts the frontend folders and this configuration directory read-only. `start.sh`
-first runs `configure.cli` using WildFly's embedded administrative server, then starts the
+The [`Dockerfile`](Dockerfile) builds `iam.war` and `api.war` and copies them, both frontend
+folders and this directory into `quay.io/wildfly/wildfly:42.0.0.Final-jdk25`. CI publishes it
+for amd64 and arm64 as `ghcr.io/karrayaziz/basilcare-wildfly`. The development override
+(`deploy/compose.dev.yaml`) mounts local WARs, frontends and this directory over the copies.
+`start.sh` first runs `configure.cli` using WildFly's embedded administrative server, then starts the
 normal server. Existing handlers/locations are updated rather than added again, so restarting
 the container is safe. Configuration also survives container replacement because it is
 reapplied from Git. No public management port is needed.
@@ -28,19 +31,37 @@ reapplied from Git. No public management port is needed.
 same container directories in both environments. A bare-metal installation can supply
 its own properties file via `BASILCARE_HOSTING_PROPERTIES` when invoking `start.sh`.
 
-For development, run the normal Compose command and open:
+Open:
 
-- <http://localhost:8080/farmer/>
-- <http://localhost:8080/admin/>
+- <https://basilcare.test/farmer/>
+- <https://basilcare.test/admin/>
 
-For production, set `PUBLIC_ORIGIN=https://your-domain.example` without a trailing slash in
-`deploy/.env`, together with `HOSTING_ENV=prod`, then recreate the WildFly service. Compose
+On another domain, set `PUBLIC_ORIGIN=https://your-domain.example` without a trailing slash
+and `TLS_HOSTNAME=your-domain.example` in `deploy/.env`, then recreate the WildFly service. Compose
 derives the exact registered IAM return addresses (`PUBLIC_ORIGIN/farmer/` and
 `PUBLIC_ORIGIN/admin/`) and allowed browser origin. `StartupData` updates existing tenant
 records from this configuration at startup.
 
-These scripts do not create DNS records or HTTPS certificates. A production TLS proxy may
-terminate HTTPS, but it must forward the frontend files to WildFly too, and preserve
+## HTTPS
+
+`start.sh` creates a self-signed certificate on first start (`keytool`, RSA 2048, 397 days,
+SAN `TLS_HOSTNAME`, `localhost`, `127.0.0.1`) in `/opt/jboss/wildfly/certs`, a named volume, so it
+survives restarts and container replacement and only has to be trusted once. It is replaced
+only when `TLS_HOSTNAME` or `TLS_KEYSTORE_PASSWORD` changes. A keystore placed there by an
+operator (a CA-issued certificate) is never overwritten. `configure.cli` adds the Elytron
+`basilcareKS` key store, `basilcareKM` key manager and `basilcareSSC` SSL context (TLS 1.3/1.2)
+and attaches it to Undertow's `https` listener (8443, published as host port 443). The keystore
+password stays an expression (`${env.TLS_KEYSTORE_PASSWORD}`) resolved from the container
+environment, so it is never written into `standalone.xml`.
+
+The browser must resolve the name: add `127.0.0.1  basilcare.test` to `/etc/hosts` (macOS/Linux)
+or `C:\Windows\System32\drivers\etc\hosts` (Windows, as administrator); the root `start.sh` offers to.
+Trusting `deploy/certs/basilcare.crt` (macOS keychain / Windows user root store; `start.sh` offers
+to) removes the browser warning. Without it, sign-in works after accepting the warning, but
+service workers, and therefore installation and offline use, do not.
+
+These scripts do not create DNS records or CA-issued certificates. A production TLS proxy may
+terminate HTTPS instead, but it must forward the frontend files to WildFly too, and preserve
 `/farmer/`, `/admin/`, `/api/` and `/iam/`. It must preserve the public Host and scheme;
 configure WildFly's listener proxy forwarding only behind a trusted proxy if necessary.
 Do not expose HTTP-only PWAs on a public IP: service workers and browser cryptography need
@@ -75,8 +96,9 @@ python3 deploy/hosting_smoke_test.py
 python3 deploy/hosting_smoke_test.py --static-only
 ```
 
-The hosting CI starts isolated Compose services and runs the server check before and after
-a restart. Browser checks should additionally verify both app installations, sign-in/out,
+The hosting CI builds the image, starts isolated Compose services, resolves `basilcare.test`
+through `/etc/hosts`, and runs the server check over verified HTTPS before and after a restart
+(the second run also proves the certificate was kept). Browser checks should additionally verify both app installations, sign-in/out,
 hash routes and offline navigation. Previously installed root-scoped development apps may
 need to be uninstalled/reinstalled at their new URLs.
 

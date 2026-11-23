@@ -4,7 +4,8 @@ Threads:
 - main thread: one measurement cycle every interval_s, pump watchdog about every 0.5 s,
   sending the queue whenever connected;
 - paho's network thread: connection, reconnection, incoming pump commands, acknowledgements;
-- a short-lived screening thread, so a slow inference never delays readings or the watchdog.
+- a short-lived screening thread, so a slow inference never delays readings or the watchdog;
+- the live-view thread (optional): camera frames with detections, QoS 0, only while connected.
 
 The gateway keeps working without network: readings go to the SQLite queue and the pump
 watchdog keeps enforcing the duration and water-level limits locally (scope section 4.2).
@@ -24,13 +25,16 @@ MAX_INFLIGHT = 50   # messages published but not yet acknowledged
 
 
 class Gateway:
-    def __init__(self, config, sensors, guard, outbox, screening=None, client=None, clock=messages.local_now):
+    def __init__(self, config, sensors, guard, outbox, screening=None, client=None, clock=messages.local_now,
+                 live=None):
         self.config = config
         self.device_id = config.device_id
         self.sensors = sensors
         self.guard = guard
         self.outbox = outbox
         self.screening = screening
+        self.live = live
+        self.live_thread = None
         self.clock = clock
         self.started_at = clock()
         self.seq = {}                 # per sensor; restarts at 1 with the software (contract section 3.2)
@@ -182,12 +186,24 @@ class Gateway:
         self.screening_thread = threading.Thread(target=work, name="screening", daemon=True)
         self.screening_thread.start()
 
+    def start_live(self):
+        if self.live is None:
+            return
+
+        def publish(topic, payload):
+            self.client.publish(topic, json.dumps(payload), qos=0, retain=False)
+
+        self.live_thread = threading.Thread(target=self.live.run, args=(publish, self.connected, self.stop_event),
+                                            name="live", daemon=True)
+        self.live_thread.start()
+
     # ---- life cycle -------------------------------------------------------------------
 
     def run(self):
         """Main loop. Whatever ends it (stop(), an exception such as a full SD card), the
         pump is switched off and the broker is told we are gone (review finding #2)."""
         self.connect()
+        self.start_live()
         interval = self.config.interval_s
         screening_every = self.config.camera.every_s
         next_measure = time.monotonic()

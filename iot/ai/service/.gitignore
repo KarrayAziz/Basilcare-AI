@@ -1,0 +1,3 @@
+# Local private traces, evaluations and any manually installed model artefacts.
+runs/
+*.gguf

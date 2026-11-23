@@ -44,10 +44,10 @@ Legend: ✅ done and tested · 🟡 done, needs a manual check or hardware · �
 
 | # | Story | Acceptance criteria | Est. | Status |
 |---|---|---|---|---|
-| US-17 | As a **farmer**, I want to ask a cultivation question and get an answer with its sources. | Curated, openly licensed corpus; every claim cites a passage; "I don't know" when unsupported. | 4 | ⬜ |
+| US-17 | As a **farmer**, I want to ask a cultivation question and get an answer with its sources. | Curated, openly licensed corpus; every claim cites a passage; "I don't know" when unsupported. | 4 | 🟡 cited CLI foundation; actual-model evaluation and PWA integration pending |
 | US-18 | As a **farmer**, I want the assistant to read my sensor history and alerts. | MCP tools call the API with the user's token (same roles). | 2 | ⬜ |
 | US-19 | As an **administrator**, I want the assistant to *request* a pump action only after I confirm, and never bypass the safety policy. | MCP tool → `POST /api/pump/...` with confirm only after a user step; the refusal case is demonstrated. | 2 | ⬜ (API ready) |
-| US-20 | As a **team**, we want prompts, model versions, retrieval ids, tool calls and evaluation results traced (LLMOps). | Traces stored with sensitive values minimised; test set for groundedness, citations, authorisation, unsafe-action refusal. | 3 | ⬜ |
+| US-20 | As a **team**, we want prompts, model versions, retrieval ids, tool calls and evaluation results traced (LLMOps). | Traces stored with sensitive values minimised; test set for groundedness, citations, authorisation, unsafe-action refusal. | 3 | 🟡 metadata traces and regression baseline; actual-model/tool evaluation pending |
 
 ## Platform (FR-08, FR-09)
 

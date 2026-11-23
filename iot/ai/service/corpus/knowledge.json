@@ -1,0 +1,92 @@
+{
+  "version": "basilcare-notes-2026-11-23-v1",
+  "notes_license": "CC-BY-4.0",
+  "sources": [
+    {
+      "id": "ncstate-basil",
+      "title": "Ocimum basilicum — NC State Extension Gardener Plant Toolbox",
+      "url": "https://plants.ces.ncsu.edu/plants/ocimum-basilicum/",
+      "authors": "NC State Extension",
+      "accessed_on": "2026-11-23"
+    },
+    {
+      "id": "usu-basil",
+      "title": "How to Grow Basil in Your Garden",
+      "url": "https://extension.usu.edu/yardandgarden/research/basil-in-the-garden",
+      "authors": "Lindsay Pearson and Dan Drost, Utah State University Extension",
+      "accessed_on": "2026-11-23"
+    },
+    {
+      "id": "project-pump",
+      "title": "BasilCare ADR 0003 — pump command path",
+      "url": "https://github.com/KarrayAziz/Basilcare-AI/blob/4ce3ca4/docs/decisions/0003-pump-command-path.md",
+      "authors": "BasilCare team",
+      "accessed_on": "2026-11-23"
+    },
+    {
+      "id": "project-camera",
+      "title": "BasilCare ADR 0005 — live camera view",
+      "url": "https://github.com/KarrayAziz/Basilcare-AI/blob/4ce3ca4/docs/decisions/0005-live-camera-view.md",
+      "authors": "BasilCare team",
+      "accessed_on": "2026-11-23"
+    }
+  ],
+  "passages": [
+    {
+      "id": "basil-light",
+      "source_id": "ncstate-basil",
+      "title": "Light and growing location",
+      "scope": "garden",
+      "keywords": ["light", "sun", "sunlight", "shade", "lighting"],
+      "text": "For sweet basil, choose a bright growing location. NC State Extension describes full sunlight as preferred and also lists partial shade among suitable conditions. This is garden guidance, not a calibrated indoor grow-light schedule."
+    },
+    {
+      "id": "basil-pruning",
+      "source_id": "ncstate-basil",
+      "title": "Pruning and branching",
+      "scope": "garden",
+      "keywords": ["prune", "pruning", "pinch", "branch", "bushy", "flower", "buds"],
+      "text": "Trim shoot tips and remove developing flower buds to encourage a more branched plant. This is general pruning guidance, not a diagnosis of a particular plant."
+    },
+    {
+      "id": "basil-problems",
+      "source_id": "ncstate-basil",
+      "title": "Examples of pests and diseases",
+      "scope": "garden",
+      "keywords": ["disease", "pest", "aphid", "beetle", "fusarium", "mildew"],
+      "text": "The NC State guide lists aphids and Japanese beetles as possible pests and mentions fusarium wilt and downy mildew. Listing these problems does not diagnose a photographed leaf."
+    },
+    {
+      "id": "basil-germination",
+      "source_id": "usu-basil",
+      "title": "Seed germination in soil",
+      "scope": "garden",
+      "keywords": ["seed", "germinate", "germination", "soil", "temperature", "sprout", "frost"],
+      "text": "Utah State University Extension recommends sowing outdoors after the final spring frost. Its guide gives a soil germination temperature of 75–85°F and a typical wait of 10–14 days. These are soil-germination conditions, not reservoir-temperature targets."
+    },
+    {
+      "id": "basil-harvest",
+      "source_id": "usu-basil",
+      "title": "Beginning the harvest",
+      "scope": "garden",
+      "keywords": ["harvest", "harvesting", "pick", "cut", "leaves"],
+      "text": "The Utah State guide says harvesting can begin at the six-to-eight-leaf stage. Leave some foliage on the plant when cutting stems; its guidance specifies keeping two to four leaves."
+    },
+    {
+      "id": "pump-confirmation",
+      "source_id": "project-pump",
+      "title": "Confirmation and pump safety",
+      "scope": "project",
+      "keywords": ["pump", "confirmation", "safety", "policy", "command", "duration"],
+      "text": "BasilCare pump requests require user confirmation and must go through the authenticated API safety checks. The Raspberry Pi also applies local cutoffs independently."
+    },
+    {
+      "id": "camera-hints",
+      "source_id": "project-camera",
+      "title": "Meaning of camera detection boxes",
+      "scope": "project",
+      "keywords": ["camera", "boxes", "detection", "diagnosis", "model", "confidence", "hints"],
+      "text": "BasilCare presents camera-model boxes as hints rather than a confirmed disease diagnosis. The live-camera design records model quality as a limitation of the demonstration."
+    }
+  ]
+}

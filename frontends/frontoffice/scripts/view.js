@@ -87,3 +87,49 @@ export function sortIncidents(incidents) {
         || Number(b.active) - Number(a.active)
         || b.openedAtEpoch - a.openedAtEpoch);
 }
+
+// ---- live camera view (contract section 6a) -------------------------------------------
+
+/** A frame older than this is shown as "camera stopped", never as live. */
+export const LIVE_STALE_S = 10;
+
+export const DISEASE_COLORS = {
+    healthy: "#2e9e44", downy_mildew: "#7b3fbf", powdery_mildew: "#1f8fb3",
+    fusarium_wilt: "#c0392b", leaf_spot: "#d68910",
+};
+
+export function detectionColor(label) {
+    return DISEASE_COLORS[label] || "#555";
+}
+
+/** "downy_mildew" -> "Downy mildew" */
+export function diseaseName(label) {
+    const text = String(label).replace(/_/g, " ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Box as fractions (x1, y1, x2, y2) -> canvas rectangle {x, y, w, h} in pixels. */
+export function boxPixels(box, width, height) {
+    const [x1, y1, x2, y2] = box.map((v) => Math.min(1, Math.max(0, v)));
+    return { x: x1 * width, y: y1 * height, w: (x2 - x1) * width, h: (y2 - y1) * height };
+}
+
+/** One line per class seen in the frame, best confidence first: [{label, confidence, count}]. */
+export function detectionSummary(detections) {
+    const best = new Map();
+    for (const d of detections) {
+        const seen = best.get(d.label);
+        best.set(d.label, { label: d.label, confidence: Math.max(seen ? seen.confidence : 0, d.confidence),
+                            count: (seen ? seen.count : 0) + 1 });
+    }
+    return [...best.values()].sort((a, b) => b.confidence - a.confidence);
+}
+
+/** Status line under the picture; stale = the device stopped sending. */
+export function liveStatus(frame) {
+    if (frame.age_s > LIVE_STALE_S) {
+        return { stale: true, text: `No new picture for ${age(Math.round(frame.age_s)).replace(" ago", "")}: the camera stream stopped.` };
+    }
+    return { stale: false, text: `Live · model ${frame.model_version} · ${frame.fps ? frame.fps.toFixed(1) : "–"} frames/s · `
+                                + `${Math.round(frame.inference_ms)} ms per picture` };
+}

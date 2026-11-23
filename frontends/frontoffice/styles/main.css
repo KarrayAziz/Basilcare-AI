@@ -38,3 +38,7 @@ input, select { padding: .35rem; border: 1px solid #c5d3c2; border-radius: 6px; 
 input[type=number] { width: 6rem; }
 table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; }
 th, td { padding: .5rem; text-align: left; border-bottom: 1px solid #e8eee6; font-size: .9rem; }
+.camera canvas { width: 100%; height: auto; display: block; border-radius: 8px; background: #1d3b22; }
+.camera canvas.stale { filter: grayscale(1); opacity: .6; }
+.camera-tags { list-style: none; padding: 0; margin: .4rem 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.camera-tags .tag { margin-left: 0; font-size: .85rem; }

@@ -25,7 +25,7 @@ def check(base, password, public_origin=None, static_only=False):
         root = sites[app] + "/"
         origin = sites[app]
         _, html, _ = call("GET", root, expect={200})
-        assert f"BasilCare {app.title()}" in html
+        assert f"BasilCare {app.title()}" in html, f"Wrong frontend at {root}: {html[:300]}"
         _, manifest, _ = call("GET", root + "manifest.webmanifest", expect={200})
         assert urllib.parse.urljoin(root, manifest["start_url"]) == root
         assert urllib.parse.urljoin(root, manifest["scope"]) == root

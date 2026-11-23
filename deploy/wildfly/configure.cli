@@ -7,9 +7,13 @@ set landingPath=`:resolve-expression(expression=${landing.path})`
 set farmerPath=`:resolve-expression(expression=${farmer.path})`
 set adminPath=`:resolve-expression(expression=${admin.path})`
 set domain=`:resolve-expression(expression=${env.TLS_HOSTNAME:basilcare.test})`
+set farmerDomain=`:resolve-expression(expression=www.${env.TLS_HOSTNAME:basilcare.test})`
+set adminDomain=`:resolve-expression(expression=admin.${env.TLS_HOSTNAME:basilcare.test})`
+set apiDomain=`:resolve-expression(expression=api.${env.TLS_HOSTNAME:basilcare.test})`
+set iamDomain=`:resolve-expression(expression=iam.${env.TLS_HOSTNAME:basilcare.test})`
 
 # Keep backend contexts for internal Node-RED and JWKS requests.
-/subsystem=undertow/server=default-server/host=default-host:write-attribute(name=alias,value=["localhost","$domain","api.$domain","iam.$domain"])
+/subsystem=undertow/server=default-server/host=default-host:write-attribute(name=alias,value=[localhost,$domain,$apiDomain,$iamDomain])
 
 /subsystem=undertow/configuration=handler/file=welcome-content:write-attribute(name=path,value=$landingPath)
 /subsystem=undertow/configuration=handler/file=welcome-content:write-attribute(name=directory-listing,value=false)
@@ -38,17 +42,17 @@ end-if
 
 # Frontends are served at the root of their own hosts.
 if (outcome != success) of /subsystem=undertow/server=default-server/host=farmer-host:read-resource
-    /subsystem=undertow/server=default-server/host=farmer-host:add(alias=["www.$domain"])
+    /subsystem=undertow/server=default-server/host=farmer-host:add(alias=[$farmerDomain])
 else
-    /subsystem=undertow/server=default-server/host=farmer-host:write-attribute(name=alias,value=["www.$domain"])
+    /subsystem=undertow/server=default-server/host=farmer-host:write-attribute(name=alias,value=[$farmerDomain])
 end-if
 if (outcome != success) of /subsystem=undertow/server=default-server/host=farmer-host/location=\/:read-resource
     /subsystem=undertow/server=default-server/host=farmer-host/location=\/:add(handler=farmer-content)
 end-if
 if (outcome != success) of /subsystem=undertow/server=default-server/host=admin-host:read-resource
-    /subsystem=undertow/server=default-server/host=admin-host:add(alias=["admin.$domain"])
+    /subsystem=undertow/server=default-server/host=admin-host:add(alias=[$adminDomain])
 else
-    /subsystem=undertow/server=default-server/host=admin-host:write-attribute(name=alias,value=["admin.$domain"])
+    /subsystem=undertow/server=default-server/host=admin-host:write-attribute(name=alias,value=[$adminDomain])
 end-if
 if (outcome != success) of /subsystem=undertow/server=default-server/host=admin-host/location=\/:read-resource
     /subsystem=undertow/server=default-server/host=admin-host/location=\/:add(handler=admin-content)

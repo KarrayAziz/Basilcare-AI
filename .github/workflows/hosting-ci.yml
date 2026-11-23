@@ -57,7 +57,9 @@ jobs:
           NODE_PATH=/tmp/basilcare-browser/node_modules node deploy/browser_hosting_test.cjs
       - name: Service logs
         if: always()
-        run: docker compose -p hosting-ci -f deploy/compose.yaml logs --tail=160 wildfly mongodb
+        run: |
+          docker compose -p hosting-ci -f deploy/compose.yaml logs --tail=160 wildfly mongodb
+          docker compose -p hosting-ci -f deploy/compose.yaml exec -T wildfly /opt/jboss/wildfly/bin/jboss-cli.sh --connect --command='/subsystem=undertow/server=default-server:read-resource(recursive=true)' || true
       - name: Clean up isolated services
         if: always()
         run: docker compose -p hosting-ci -f deploy/compose.yaml down --volumes

@@ -23,6 +23,8 @@ It works **today with only the Pi and its camera**: every sensor can be `simulat
 | [`quality.py`](basilcare_edge/quality.py) | too dark / too bright / low contrast / blurry / no leaf in frame |
 | [`inference.py`](basilcare_edge/inference.py) | TFLite model (int8 or float), labels and version from the JSON sidecar written by `iot/ai/model/` |
 | [`screening.py`](basilcare_edge/screening.py) | capture → quality → model → keep the image on the Pi → `screening` message, `review_required` when unsure |
+| [`detector.py`](basilcare_edge/detector.py) | YOLO leaf-disease detector exported to NCNN (`ncnn` package, no PyTorch): letterbox, boxes, per-class NMS; also gives one label per picture to the screenings |
+| [`live.py`](basilcare_edge/live.py) | live camera view: capture → detector → 640 px JPEG + boxes → `camera/live` (QoS 0, only while connected, never stored) |
 
 ## Why it is organised this way
 
@@ -30,7 +32,7 @@ It works **today with only the Pi and its camera**: every sensor can be `simulat
 - **Queue first, then publish.** Every reading goes to SQLite before MQTT. A reading published late is flagged `buffered: true` at sending time (older than 1.5 × interval), so the cloud stores it as history and never shows it as the live value (scope §2.3).
 - **Two independent safety barriers.** The API checks a pump request (`PumpSafetyPolicy`), and the Pi checks it again here. The Pi's check does not need the cloud, and neither an API bug nor the AI assistant can bypass it.
 - **Hardware libraries are imported lazily**, only by the drivers that need them, so the whole gateway runs and is tested on a laptop.
-- **Images stay on the Pi** (contract §6). Only the result is sent; `image_id` lets a person find the picture for review.
+- **Images stay on the Pi** (contract §6). Only the result is sent; `image_id` lets a person find the picture for review. The one exception is the optional live view (contract §6a, [ADR 0005](../../docs/decisions/0005-live-camera-view.md)): small frames kept only in memory, by the Pi and by the API.
 - **A slow model never delays readings**: screening runs in its own thread.
 
 ## How to use it
@@ -47,7 +49,22 @@ rpicam-still -o test.jpg                         # camera check
 .venv/bin/python -m basilcare_edge --config config.toml
 ```
 
-Register the device id in the admin PWA (or `POST /api/devices`) so the API accepts pump commands for it. To start at boot, install [`systemd/basilcare-edge.service`](systemd/basilcare-edge.service) (instructions inside the file).
+Register the device id in the admin PWA (or `POST /api/devices`) so the API accepts pump commands for it.
+
+**Live camera view with the disease detector.** Copy the NCNN export from the PC (`iot/ai/model/runs/<run>/weights/best_ncnn_model/`) to the Pi, for example `iot/edge/models/basil-detect-0.1-ncnn320/`, then in `config.toml`:
+
+```toml
+[camera]
+enabled = true                # 10-minute screenings, now from the detector
+source = "picamera2"
+[model]
+path = "models/basil-detect-0.1-ncnn320"
+[live]
+enabled = true
+max_fps = 2
+```
+
+The farmer app then shows a **Live camera** card with the boxes. To start at boot, install [`systemd/basilcare-edge.service`](systemd/basilcare-edge.service) (instructions inside the file).
 
 ### On a laptop (no Pi needed)
 

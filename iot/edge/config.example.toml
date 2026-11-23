@@ -38,9 +38,19 @@ keep_images = 500
 # controls = { AeEnable = false, ExposureTime = 20000, AnalogueGain = 1.5, AwbEnable = false, ColourGains = [1.8, 1.6] }
 
 [model]
-path = ""                     # e.g. "../ai/model/export/leafscreen-int8.tflite"; empty = every result needs review
+# A .tflite classifier, or a YOLO detector exported to NCNN (a folder), e.g.
+#   path = "models/basil-detect-0.1-ncnn320"   (copy best_ncnn_model/ there from the PC)
+path = ""                     # empty = every screening needs review, live view without boxes
 review_threshold = 0.7        # below this confidence the PWA shows "review required"
 threads = 4                   # the Pi 4 has 4 cores
+confidence = 0.35             # NCNN detector: boxes below this score are not shown
+# version = "basil-detect-0.1-ncnn320"   # sent as model_version (default: the folder name)
+
+[live]
+enabled = false               # live camera view in the farmer app (contract section 6a)
+max_fps = 2                   # frames per second at most (each about 60 KB)
+width = 640                   # pictures are resized to this width
+jpeg_quality = 70
 
 # ---- sensors -------------------------------------------------------------------------
 # Until the probes arrive, every sensor is simulated (published with calibrated = false).

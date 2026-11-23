@@ -30,6 +30,7 @@ Every component that publishes or subscribes follows it: `iot/edge/`, `iot/simul
 | `basilcare/v1/{device_id}/pump/cmd` | cloud → device | **no** | request to start or stop the pump (§5) |
 | `basilcare/v1/{device_id}/pump/state` | device → cloud | **yes** | pump state, and the result of the last command (§5) |
 | `basilcare/v1/{device_id}/screening` | device → cloud | no | result of one edge image screening (§6) |
+| `basilcare/v1/{device_id}/camera/live` | device → cloud | no | live camera frame with the model's detections, QoS 0 (§6a) |
 
 Useful subscriptions:
 
@@ -231,7 +232,8 @@ The device publishes `pump/state` after each connection (current state), after e
 
 ## 6. Image screening
 
-Images stay on the Pi. Only the derived result is sent (scope §4.1).
+Images stay on the Pi. Only the derived result is sent (scope §4.1). The live camera view
+(§6a) is the one exception, and its frames are never stored.
 
 Topic: `basilcare/v1/basil-pi-01/screening`
 
@@ -260,6 +262,50 @@ Topic: `basilcare/v1/basil-pi-01/screening`
 | `quality_ok` | boolean | result of the image-quality checks |
 | `quality_issues` | list of strings | e.g. `"too_dark"`, `"blurry"`, `"out_of_frame"`; empty when `quality_ok` is `true` |
 | `review_required` | boolean | `true` when the confidence is below the device threshold or the quality check failed. The PWA then shows "review required". It never presents the result as a diagnosis. |
+
+---
+
+## 6a. Live camera view
+
+Optional (`[live] enabled = true` on the device). A few times per second the device publishes
+one small camera frame with the boxes the leaf-disease detector found in it, so the farmer can
+watch the plants live in the app. See [ADR 0005](decisions/0005-live-camera-view.md).
+
+Topic: `basilcare/v1/basil-pi-01/camera/live`, **QoS 0, not retained**, published only while
+connected: a lost frame is replaced by the next one, and frames never enter the offline queue.
+
+```json
+{
+  "device_id": "basil-pi-01",
+  "frame_id": 1842,
+  "captured_at": "2026-11-23T18:00:00+01:00",
+  "model_version": "basil-detect-0.1-ncnn320",
+  "width": 640,
+  "height": 480,
+  "image_jpeg": "/9j/4AAQSkZJRgABAQ...",
+  "detections": [
+    { "label": "downy_mildew", "confidence": 0.71, "box": [0.12, 0.20, 0.48, 0.61] }
+  ],
+  "inference_ms": 182.4,
+  "fps": 2.1
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `frame_id` | integer ≥ 1 | counter of the frames since the gateway started |
+| `captured_at` | timestamp | when the picture was taken |
+| `model_version` | string | detector that produced `detections` (`"none"` = camera only, no model) |
+| `width`, `height` | integers | size of the JPEG in pixels (at most 640 px wide by default) |
+| `image_jpeg` | string | the picture, JPEG encoded in base64, at most 700 000 characters |
+| `detections` | list | one entry per box: `label` (any class name, as in §6), `confidence` 0..1, `box` = x1, y1, x2, y2 as fractions (0..1) of the width and height. Empty when nothing is found. |
+| `inference_ms` | number | time the model took on this frame |
+| `fps` | number | frames per second actually sent (0 on the first frame) |
+
+Rules: frames are **transient**. Consumers keep at most the latest frame per device, in
+memory, and never write it to a database or a log. A frame is not a screening: it raises no
+incident and is never shown as a diagnosis. The 10-minute `screening` messages (§6) remain the
+stored record of the plants' health.
 
 ---
 
@@ -293,7 +339,7 @@ Topic: `basilcare/v1/basil-pi-01/screening`
 
 | Client | May publish | May subscribe |
 |---|---|---|
-| device `basil-pi-01` | `basilcare/v1/basil-pi-01/telemetry/#`, `.../status`, `.../pump/state`, `.../screening` | `basilcare/v1/basil-pi-01/pump/cmd` |
+| device `basil-pi-01` | `basilcare/v1/basil-pi-01/telemetry/#`, `.../status`, `.../pump/state`, `.../screening`, `.../camera/live` | `basilcare/v1/basil-pi-01/pump/cmd` |
 | backend (Node-RED, API) | `basilcare/v1/+/pump/cmd` | `basilcare/v1/#` |
 
 In Mosquitto, `%u` stands for the username, so one rule covers all devices, for example `pattern write basilcare/v1/%u/telemetry/#`.

@@ -1,0 +1,14 @@
+{
+  "version": "illustrative-engineering-example-1",
+  "minimum_overall": {
+    "precision": 0.6,
+    "recall": 0.6,
+    "mAP50": 0.5,
+    "mAP50_95": 0.2
+  },
+  "minimum_per_class": {
+    "recall": 0.5,
+    "mAP50": 0.4
+  },
+  "minimum_test_images_per_class": 10
+}

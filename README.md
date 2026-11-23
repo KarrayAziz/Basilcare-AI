@@ -101,6 +101,11 @@ offline/login isolation.
 | Node-RED and PWAs | `node --test "iot/node-red/test/*.test.js" "frontends/frontoffice/test/*.mjs" "frontends/backoffice/test/*.js"` |
 | Whole stack | `python deploy/smoke_test.py` |
 | WildFly hosting and both PKCE redirects | `python deploy/hosting_smoke_test.py` |
+| Model dataset audit, provenance and quality checks | `python -m unittest discover -s iot/ai/model/tests -v` (install `iot/ai/model/requirements-mlops.txt`) |
+
+See the [MLOps run guide](iot/ai/model/MLOPS.md) for dataset checks and an explicit training
+pipeline around the existing YOLO scripts. Model CI uses artificial fixtures; it does not
+train a detector or replace the model on the Pi.
 
 CI runs the first four on every pull request (`.github/workflows/`). The hosting CI builds the
 production image and checks HTTPS, the PWAs and sign-in. On every push to `main`,

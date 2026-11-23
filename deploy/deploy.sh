@@ -43,9 +43,11 @@ else
         || { echo "build failed: nothing deployed"; exit 1; }
 fi
 
+echo "== build the WildFly image (WARs, PWAs and HTTPS configuration)"
+docker compose -f deploy/compose.yaml build wildfly
+
 echo "== start the stack"
-docker compose -f deploy/compose.yaml up -d --remove-orphans
-docker compose -f deploy/compose.yaml restart wildfly   # pick up the new WARs
+docker compose -f deploy/compose.yaml up -d --no-build --remove-orphans   # recreates WildFly if its image changed
 
 echo "== wait for the API"
 for _ in $(seq 1 60); do
@@ -62,11 +64,14 @@ for _ in $(seq 1 30); do
     if curl -fsS http://localhost:8080/iam/jwk >/dev/null 2>&1; then break; fi
     sleep 2
 done
-python3 deploy/hosting_smoke_test.py --static-only
+python3 deploy/hosting_smoke_test.py --base http://localhost:8080 --static-only
+mkdir -p deploy/certs
+docker compose -f deploy/compose.yaml cp wildfly:/opt/jboss/wildfly/certs/basilcare.crt deploy/certs/basilcare.crt
 
 if [ "$SMOKE" = 1 ]; then
     set -a; . deploy/.env; set +a
     python3 deploy/smoke_test.py --password "$ADMIN_PASSWORD" \
-        --redirect-uri "${PUBLIC_ORIGIN:-http://localhost:8080}/admin/"
+        --api "${PUBLIC_ORIGIN:-https://basilcare.test}" \
+        --redirect-uri "${PUBLIC_ORIGIN:-https://basilcare.test}/admin/"
 fi
 echo "== deployed"

@@ -127,6 +127,9 @@ fi
 
 say "Starting the stack"
 "${COMPOSE[@]}" up -d --no-build --remove-orphans
+# Python imports the read-only source mount once. Compose may keep this container
+# unchanged after a code update, even when --build replaced the WildFly image.
+"${COMPOSE[@]}" restart assistant
 
 say "Waiting for WildFly (first start takes about a minute)"
 if ! bash deploy/wait_ready.sh "https://localhost:$PORT" 60; then

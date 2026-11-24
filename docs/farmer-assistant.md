@@ -9,7 +9,11 @@ bash start.sh --build
 Keep `GEMINI_API_KEY` in the ignored `deploy/.env`. The launch script adds a dedicated
 `ASSISTANT_SERVICE_KEY` if absent. The Compose stack runs a small internal Python service;
 its code is mounted from `iot/ai/service`, with no additional pip packages. WildFly's image
-must be rebuilt for the new API and frontend. No model weights need downloading.
+must be rebuilt for the new API and frontend. The script also restarts the Python
+assistant so it reloads changed source files. No model weights need downloading.
+If you update only the assistant's Python source while the stack is already running, use
+`docker compose -f deploy/compose.yaml restart assistant`; rebuilding only WildFly will
+not reload Python modules in an existing assistant process.
 
 Open `https://www.basilcare.test/`, sign in, then choose **Assistant**. Try “Comment dois-je
 tailler le basilic ?” Gemini receives all five public notes as context and writes an answer

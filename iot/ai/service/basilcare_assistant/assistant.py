@@ -46,22 +46,34 @@ class Assistant:
                     "retrieved_ids": [], "selected_ids": [], "tools": [], "generation_requested": False,
                     "question_characters": len(question),
                     "corpus_scope": "public-garden" if self.knowledge.public_only else "full"}
-        boundary = capability_limit(question)
+        generated = self.selector.mode == "gemini"
+        metadata["answer_mode"] = "generated-with-context" if generated else "extractive"
+        metadata["context_strategy"] = "all-public-garden-notes" if generated else "lexical-retrieval"
+        boundary = None if generated else capability_limit(question)
         if boundary:
             result["status"], result["answer"] = boundary
         else:
-            candidates = self.knowledge.retrieve(question)
-            metadata["retrieved_ids"] = [p["id"] for p in candidates]
+            # Five short public notes fit the context: no keyword/English gate for Gemini.
+            candidates = list(self.knowledge.passages.values()) if generated else self.knowledge.retrieve(question)
+            candidate_ids = [p["id"] for p in candidates]
+            metadata["retrieved_ids"] = [] if generated else candidate_ids
+            metadata["context_ids"] = candidate_ids if generated else []
             if candidates:
                 try:
                     selection = self.selector.select(question, candidates)
                     ids = selection.get("passage_ids") if isinstance(selection, dict) else None
-                    if (not isinstance(selection, dict) or set(selection) != {"passage_ids"}
+                    if (not isinstance(selection, dict) or set(selection) != ({"answer", "passage_ids"} if generated else {"passage_ids"})
                             or not isinstance(ids, list) or len(ids) > 2
                             or any(not isinstance(key, str) for key in ids)
                             or len(set(ids)) != len(ids)
-                            or any(key not in metadata["retrieved_ids"] for key in ids)):
+                            or any(key not in candidate_ids for key in ids)):
                         raise ModelOutputError("selection contains invalid evidence IDs or extra fields")
+                    if generated:
+                        answer = selection["answer"]
+                        if (not isinstance(answer, str) or not 1 <= len(answer.strip()) <= 4000
+                                or re.search(r"https?://|www\.", answer, re.IGNORECASE)):
+                            raise ModelOutputError("answer must be bounded plain text without model-supplied URLs")
+                        result["answer"] = answer.strip()
                     if ids:
                         citations = []
                         for key in ids:
@@ -71,7 +83,8 @@ class Assistant:
                                               "title": source["title"], "url": source["url"],
                                               "text": passage["text"]})
                         result.update(status="answered", citations=citations,
-                                      answer="\n\n".join(f"{c['text']} [{c['passage_id']}]({c['url']})" for c in citations))
+                                      answer=result["answer"] if generated else "\n\n".join(
+                                          f"{c['text']} [{c['passage_id']}]({c['url']})" for c in citations))
                         metadata["selected_ids"] = ids
                 except ModelUnavailable as error:
                     messages = {
@@ -88,9 +101,9 @@ class Assistant:
                     message = messages.get(code, "The selected model is unavailable.")
                     result.update(status="model_unavailable", answer=message + " No answer was generated.")
                 except ModelOutputError:
-                    result.update(status="invalid_model_output", answer="The model did not return valid source selections. No answer was generated.")
+                    result.update(status="invalid_model_output", answer="The model did not return a valid answer and source references. No answer was generated.")
         for key in ("generation_requested", "baseline", "resolved_model", "model_digest", "options",
-                    "prompt_eval_count", "eval_count", "total_duration", "promptTokenCount",
+                    "prompt_version", "prompt_sha256", "prompt_eval_count", "eval_count", "total_duration", "promptTokenCount",
                     "candidatesTokenCount", "totalTokenCount", "thoughtsTokenCount"):
             if key in self.selector.last_metadata:
                 metadata[key] = self.selector.last_metadata[key]

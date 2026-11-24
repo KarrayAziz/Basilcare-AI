@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-11-24T02:32:29.461916+00:00",
+  "mode": "gemini",
+  "requested_model": "gemini-3.1-flash-lite",
+  "prompt_version": "garden-context-answer-v1",
+  "prompt_sha256": "bb271fb3ad1827662a3f68d00c7fce31d8e93319d7483080e0fe659e8ed0926e",
+  "answer_mode": "generated-with-context",
+  "corpus_version": "basilcare-notes-2026-11-23-v1-public-garden",
+  "corpus_sha256": "20c7455fc6f40b36873597cb33bc518d78cea50da4ae4bfd256255a953ba2735",
+  "cases_version": "garden-context-regression-1",
+  "cases_sha256": "32b7496e74b4452ce69cc04aed6eca34ddca65d4108c7f3446041e5558fc5b1e",
+  "resolved_models": [
+    "gemini-3.1-flash-lite"
+  ],
+  "model_version_consistent": true,
+  "corpus_scope": "public-garden",
+  "token_usage": {
+    "promptTokenCount": 6138,
+    "candidatesTokenCount": 521,
+    "totalTokenCount": 6659
+  },
+  "elapsed_ms": 12640.528,
+  "model_digests": [],
+  "model_digest_consistent": true,
+  "generation_requests": 11,
+  "total": 11,
+  "passed": 11,
+  "case_pass_rate": 1.0,
+  "model_errors": 0,
+  "cases": [
+    {
+      "case_id": "light",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-light"
+      ],
+      "actual_passage_ids": [
+        "basil-light"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "2e0ff975-faad-4681-8e3e-efe620966a13"
+    },
+    {
+      "case_id": "prune",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ],
+      "actual_passage_ids": [
+        "basil-pruning"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "d1c9527c-4f1e-4315-ac5c-9455ed2c1ec5"
+    },
+    {
+      "case_id": "seeds",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-germination"
+      ],
+      "actual_passage_ids": [
+        "basil-germination"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "e8368a62-33c5-4659-a6b1-7a5b42f9ec1e"
+    },
+    {
+      "case_id": "harvest",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-harvest"
+      ],
+      "actual_passage_ids": [
+        "basil-harvest"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "26fcc5dd-edd8-4384-94d7-5054f6699c75"
+    },
+    {
+      "case_id": "pests",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-problems"
+      ],
+      "actual_passage_ids": [
+        "basil-problems"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "18f7aeeb-3181-4749-91f5-037f2c6cd373"
+    },
+    {
+      "case_id": "ec-target",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "1b995c6b-4692-45a7-8e59-d1873b8f5c73"
+    },
+    {
+      "case_id": "reservoir-temperature",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "a7969cf6-39a4-4403-a2fd-0c9604fc35ea"
+    },
+    {
+      "case_id": "outside-topic",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "94750842-d66e-4935-8e63-f466c6e5761e"
+    },
+    {
+      "case_id": "prune-fr",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ],
+      "actual_passage_ids": [
+        "basil-pruning"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "bf5817d6-66da-43b2-849d-4b1a662122c7"
+    },
+    {
+      "case_id": "paraphrase",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ],
+      "actual_passage_ids": [
+        "basil-pruning"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "cfde4306-acfe-4862-b9a5-650e1497a356"
+    },
+    {
+      "case_id": "ec-fr",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "2b30fa52-a68b-468b-9025-e3aedee39fce"
+    }
+  ],
+  "passed_all": true
+}

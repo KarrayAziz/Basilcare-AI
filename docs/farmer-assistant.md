@@ -11,8 +11,9 @@ Keep `GEMINI_API_KEY` in the ignored `deploy/.env`. The launch script adds a ded
 its code is mounted from `iot/ai/service`, with no additional pip packages. WildFly's image
 must be rebuilt for the new API and frontend. No model weights need downloading.
 
-Open `https://www.basilcare.test/`, sign in, then choose **Assistant**. Try “How should I
-prune basil?” The answer shows the original curated note and a source link. No chat box is
+Open `https://www.basilcare.test/`, sign in, then choose **Assistant**. Try “Comment dois-je
+tailler le basilic ?” Gemini receives all five public notes as context and writes an answer
+in the question's language, with saved source links. No chat box is
 added to the Admin website. An Admin can use the Farmer website, as before.
 
 The key stays server-side, in the Python service; the browser only sends its IAM token to
@@ -20,15 +21,14 @@ the Java API. Requests follow:
 
 ```
 Farmer PWA -> Java API (login + role + rate limit)
-           -> internal Python assistant (service key + public notes)
+           -> internal Python assistant (service key + all public notes)
            -> Gemini (API key)
            -> answer with approved source links
 ```
 
 This is public gardening Q&A, not live readings, diagnosis or pump control. There is no
 persistent chat history or conversation context sent with the next question. The browser
-keeps at most ten exchanges until navigation/reload. Questions must be English, 1–2000
-characters. A public-garden answer does not establish a hydroponic target.
+keeps at most ten exchanges until navigation/reload. Questions may be French or English, 1–2000 characters. A public-garden answer does not establish a hydroponic target.
 
 If it is unavailable, check your Gemini project quota/key and that both containers have
 the same dedicated service key. Don't paste secret values or full Compose config into

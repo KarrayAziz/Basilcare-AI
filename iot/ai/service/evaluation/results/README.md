@@ -23,3 +23,23 @@ It contains no credentials, raw questions, answer text, provider signatures or H
 Questions and curated notes for the five model calls are public gardening material;
 project/pump/camera notes were excluded. The full 15-case suite remains separately tested
 with the local no-model baseline; this snapshot does not claim a cloud test of that suite.
+
+## Context-based generation run
+
+`gemini-context-2026-11-24.json` is a separate Gemini 3.1 Flash-Lite run after
+switching to all-five-note context and model-written answers. Eleven public cases
+passed expected status/source-ID and structural source checks, including French
+pruning, an English paraphrase, and unsupported requests. All eleven called Gemini;
+Google reported 6,659 total tokens (6,138 input and 521 output), about 12.6 seconds
+for the complete run. Settings: temperature 0, maximum 768 output tokens/request.
+
+A separate manual French pruning check returned: “Pour favoriser une plante plus
+ramifiée, taillez les extrémités des pousses et retirez les boutons floraux en cours
+de développement.” This matches the supplied pruning note and illustrates French
+wording; it is not broad multilingual validation.
+
+This run uses prompt `garden-context-answer-v1`, not the previous evidence-selection
+prompt. The older 8/8 result above describes the older behavior only. Source checks
+verify references to saved notes, not entailment of every generated statement. The
+new snapshot contains no credentials or raw questions/answers; normal traces also
+do not store them. This quoted public gardening example is deliberately documented.

@@ -64,7 +64,7 @@ class HttpServerTest(unittest.TestCase):
             self.assertEqual(headers['Cache-Control'],'no-store')
             fake.assert_called_once_with('How should I prune basil?')
 
-    def test_projection_never_returns_provider_metadata_or_markdown_links(self):
+    def test_projection_preserves_generated_answer_without_provider_metadata(self):
         result = {'status':'answered','answer':'markdown','citations':[{'title':'NC State',
                   'url':'https://plants.ces.ncsu.edu/plants/ocimum-basilicum/','text':'Prune tips.'}],
                   'metadata':{'internal':'not-for-the-browser'}}
@@ -74,7 +74,7 @@ class HttpServerTest(unittest.TestCase):
             fake.return_value.ask.return_value = result
             projected = answer('basil')
             self.assertEqual(set(projected), {'status','answer','citations'})
-            self.assertEqual(projected['answer'], 'Prune tips.')
+            self.assertEqual(projected['answer'], 'markdown')
 
     def test_busy_missing_config_and_provider_errors_fail_without_fallback(self):
         with patch('basilcare_assistant.http_server.SLOTS') as slots:

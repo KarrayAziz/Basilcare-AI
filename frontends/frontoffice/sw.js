@@ -1,5 +1,5 @@
 // Cache the app shell so the PWA opens offline. Change the name to force an update.
-const CACHE = "basilcare-farmer-v8";
+const CACHE = "basilcare-farmer-v9";
 const SHELL = [
     "./", "index.html", "styles/main.css", "scripts/app.js", "scripts/auth.js",
     "scripts/assistant.js", "pages/assistant.html", "scripts/api.js", "scripts/view.js", "scripts/dashboard.js", "manifest.webmanifest",

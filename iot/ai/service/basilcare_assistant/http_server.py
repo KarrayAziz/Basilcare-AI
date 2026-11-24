@@ -17,7 +17,7 @@ def answer(question):
     result = Assistant(GeminiSelector(load_api_key(), model=os.environ.get(
         "GEMINI_MODEL", "gemini-3.1-flash-lite"), timeout=25)).ask(question)
     return {"status": result["status"],
-            "answer": "\n\n".join(c["text"] for c in result["citations"]) or result["answer"],
+            "answer": result["answer"],
             "citations": [{k: c[k] for k in ("title", "url", "text")} for c in result["citations"]]}
 
 

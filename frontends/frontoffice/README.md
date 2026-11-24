@@ -9,3 +9,8 @@ and HTTPS ports are derived from the frontend URL.
 
 Login storage and offline caches stay on this app's origin. Backend endpoints enforce
 roles and explicitly allow the two frontend origins through CORS.
+
+The **Assistant** route requires sign-in and calls the protected `/api/assistant/ask`
+endpoint. It displays plain answer text and approved source links. The Gemini key is
+never loaded by frontend code. See `docs/farmer-assistant.md` at the repository root for
+startup and scope. Requests are not cached and conversations are not persisted.

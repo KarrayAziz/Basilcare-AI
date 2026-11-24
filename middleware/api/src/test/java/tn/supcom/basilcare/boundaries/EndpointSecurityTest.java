@@ -24,7 +24,7 @@ class EndpointSecurityTest {
 
     private static final List<Class<?>> USER_RESOURCES = List.of(
             TelemetryResource.class, DeviceStateResource.class, ScreeningResource.class,
-            IncidentResource.class, ThresholdResource.class, PumpResource.class, CameraResource.class);
+            IncidentResource.class, ThresholdResource.class, PumpResource.class, CameraResource.class, AssistantResource.class);
 
     @Test
     void everyUserEndpointNeedsAValidTokenAndDeclaresItsRoles() {

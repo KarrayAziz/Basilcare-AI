@@ -58,6 +58,14 @@ if [ ! -f deploy/.env ]; then
 else
     echo "using the existing deploy/.env"
 fi
+# Add a dedicated service credential to existing configs without touching user/API passwords.
+if [ -z "$(env_value ASSISTANT_SERVICE_KEY)" ]; then
+    assistant_config="$(mktemp)"
+    awk '!/^ASSISTANT_SERVICE_KEY=/' deploy/.env > "$assistant_config"
+    printf '\nASSISTANT_SERVICE_KEY=%s\n' "$(random)" >> "$assistant_config"
+    cat "$assistant_config" > deploy/.env
+    rm -f "$assistant_config"
+fi
 HOST="$(env_value TLS_HOSTNAME)"; HOST="${HOST:-basilcare.test}"
 PORT="$(env_value HTTPS_PORT)"; PORT="${PORT:-443}"
 ORIGIN="https://$HOST"; [ "$PORT" = 443 ] || ORIGIN="$ORIGIN:$PORT"

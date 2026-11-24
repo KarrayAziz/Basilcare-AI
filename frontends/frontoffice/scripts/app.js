@@ -1,4 +1,5 @@
 import { signIn, signUp, signOut, handleRedirect, token } from "./auth.js";
+import { startAssistant, stopAssistant } from "./assistant.js";
 import { API } from "./api.js";
 import { startDashboard, stopDashboard } from "./dashboard.js";
 
@@ -6,8 +7,9 @@ const routes = {
     "/": "pages/welcome.html",
     "/dashboard": "pages/dashboard.html",
     "/about": "pages/about.html",
+    "/assistant": "pages/assistant.html",
 };
-const needsSignIn = new Set(["/dashboard"]);
+const needsSignIn = new Set(["/dashboard", "/assistant"]);
 
 async function render() {
     const path = window.location.hash.slice(1) || "/";
@@ -17,6 +19,7 @@ async function render() {
     }
     const file = routes[path] ?? routes["/"];
     stopDashboard();
+    stopAssistant();
     document.getElementById("main").innerHTML = await (await fetch(file)).text();
 
     const signedIn = token() !== null;
@@ -24,6 +27,7 @@ async function render() {
     document.getElementById("signup").hidden = signedIn;
     document.getElementById("signout").hidden = !signedIn;
 
+    if (path === "/assistant") startAssistant();
     if (path === "/dashboard") {
         await showMe();
         await startDashboard();

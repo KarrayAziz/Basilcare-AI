@@ -69,3 +69,23 @@ mvn clean verify     # 41 unit tests: services against in-memory stores, endpoin
 ```
 
 The whole data path is tested against the running stack by [`deploy/smoke_test.py`](../../deploy/smoke_test.py).
+
+### Public gardening assistant
+
+`POST /api/assistant/ask` requires a verified Farmer/Admin token. Body:
+`{"question":"How should I prune basil?"}` (1–2000 characters, JSON at most 16 KiB).
+A successful response has `status`, plain `answer` and `citations` containing
+`title`, `text` and approved HTTPS `url` fields. Unsupported questions return an
+intentional abstention with no citations. There are no device tools or live-data access.
+
+Errors: 401 missing/invalid login, 403 wrong role, 400 invalid question, 413 oversized
+body, 429 six-per-user/minute limit (Retry-After: 60), 503 service busy/unavailable.
+There are two concurrent upstream slots per API instance, and the rate-limit table
+has at most 1,024 active user windows. These limits are local to the process and reset
+on restart. Answers/errors from the resource are `Cache-Control: no-store`.
+
+The API forwards only the question and a dedicated internal service credential to
+`http://assistant:8090/ask`. Configure `ASSISTANT_SERVICE_KEY` in both services;
+`start.sh` creates it if absent. The Python service alone receives `GEMINI_API_KEY`.
+No user token, provider key, model metadata or upstream error body is returned to the
+browser. See `docs/farmer-assistant.md` for launch instructions and limits.

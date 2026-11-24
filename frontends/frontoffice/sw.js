@@ -1,8 +1,8 @@
 // Cache the app shell so the PWA opens offline. Change the name to force an update.
-const CACHE = "basilcare-farmer-v7";
+const CACHE = "basilcare-farmer-v8";
 const SHELL = [
     "./", "index.html", "styles/main.css", "scripts/app.js", "scripts/auth.js",
-    "scripts/api.js", "scripts/view.js", "scripts/dashboard.js", "manifest.webmanifest",
+    "scripts/assistant.js", "pages/assistant.html", "scripts/api.js", "scripts/view.js", "scripts/dashboard.js", "manifest.webmanifest",
     "pages/welcome.html", "pages/dashboard.html", "pages/about.html", "images/icon.svg",
 ].map((file) => new URL(file, self.registration.scope).href);
 

@@ -5,9 +5,9 @@ It retrieves curated notes, asks an **explicitly selected Ollama or Gemini model
 validates that selection, then returns the original notes with their source links.
 The model does not write the final prose, invent citation URLs or call device tools.
 
-This is a constrained first version: **not yet in the Farmer PWA**, with no HTTP/MCP
-server, live sensor access or pump control. Those integrations need their own authenticated
-API/role tests in later PRs.
+The assistant is available through the command line and the signed-in Farmer PWA's
+Assistant page, via the protected Java API and an internal Python HTTP service. It has
+no MCP server, live sensor access or pump control. Those capabilities remain later work.
 
 ## Try the explicit no-model baseline
 
@@ -165,7 +165,7 @@ models**. Baseline/mock scores must not be presented as actual model quality. Ru
 explicit provider evaluation before making that claim. This first PR does not
 automatically promote or deploy an assistant.
 
-Next stages: actual local-model evaluation, broader model evaluations, authenticated API/PWA integration, read-only
+Next stages: actual local-model evaluation, broader model evaluations, read-only
 MCP tools and broader LLMOps checks. US-17/US-20 are only partially implemented;
 US-18/US-19 and complete LLMOps remain unfinished.
 
@@ -181,3 +181,46 @@ US-18/US-19 and complete LLMOps remain unfinished.
   sanitized errors and protocol tests, as well as corpus summaries, retrieval, the local adapter,
   citations, metadata traces, tests and documentation. The attribution prompt journal
   remains a separate team follow-up.
+
+## Farmer website integration
+
+The Farmer app's **Assistant** page sends `POST /api/assistant/ask` with the existing
+Bearer login token and `{ "question": "How should I prune basil?" }`. The API permits
+Farmer/Admin roles, then calls the internal Python service at `http://assistant:8090/ask`
+using a separate service credential. The user token is not forwarded to Python or Google.
+Only Python receives `GEMINI_API_KEY`. It creates a fresh public-garden assistant for each
+request and returns plain answer text and source links, without provider metadata.
+
+The Compose `assistant` service has no published host port, dependencies to install or
+persistent chat store. It runs the standard-library module `basilcare_assistant.http_server`
+from a read-only source mount, as a non-root user. It needs `ASSISTANT_SERVICE_KEY` (24+
+characters) shared with WildFly. `start.sh` generates this key for new/existing `.env` files
+on the next launch. It does not overwrite IAM passwords or the Gemini key. If launching
+Compose directly, set a dedicated random service key yourself. Never reuse the user JWT,
+admin password or Gemini key for this purpose.
+
+The website uses Gemini only. Local Ollama remains a terminal option; switching providers
+on failure is not automatic. `GEMINI_MODEL` can override the cloud model in `deploy/.env`.
+Without a Gemini key/service credential, the rest of the platform works; asking a question
+returns an unavailable message. This assistant still cannot read sensors or act on devices.
+
+Limits are six questions per user per minute and two concurrent requests per API instance,
+plus two concurrent model calls in Python. The user map is capped at 1,024 active windows;
+limits are in memory and reset on restart, not distributed quotas across replicas. Requests
+are limited to 2,000 characters and 16 KiB JSON; internal replies to 32 KiB. Gemini calls
+have a 25-second timeout; the API uses bounded reads and connect/read timeouts. Client
+navigation cancels the browser wait, but cannot guarantee cancellation of an already-sent
+model request or its token charge. No automatic retries occur.
+
+The browser renders questions/answers as text, allows links only to the two approved
+extension sources, shows failures/loading states and retains at most ten exchanges in page
+memory. Navigation/sign-out clears that page's conversation. POST answers are `no-store`
+and are not added to the service-worker cache, browser storage, database or application
+traces. Provider retention still follows Google's terms. The UI explicitly warns users that
+the question and public notes go to Gemini and asks them not to include private information.
+
+Software tests cover the internal HTTP credential/body limits, Java bridge/role/input/rate
+checks, and unavailable-provider behavior without real cloud requests. The hosting browser
+test checks unauthenticated rejection, signed-in unavailable-service behavior and scripted
+answer/source rendering (including HTML-as-text). This is not a live Gemini browser test.
+OpenAI Codex assisted Aziz Karray with this API/service/PWA integration and its tests.

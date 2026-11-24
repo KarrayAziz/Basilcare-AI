@@ -2,10 +2,10 @@ name: WildFly PWA hosting CI
 
 on:
   pull_request:
-    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".dockerignore", ".github/workflows/hosting-ci.yml"]
+    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", "iot/ai/service/**", ".dockerignore", ".github/workflows/hosting-ci.yml"]
   push:
     branches: [main]
-    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", ".dockerignore", ".github/workflows/hosting-ci.yml"]
+    paths: ["deploy/**", "frontends/frontoffice/**", "frontends/backoffice/**", "middleware/api/**", "middleware/iam/**", "iot/ai/service/**", ".dockerignore", ".github/workflows/hosting-ci.yml"]
 
 permissions:
   contents: read

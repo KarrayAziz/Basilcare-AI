@@ -46,6 +46,7 @@ services:
       TZ: Africa/Tunis                       # offsets in API timestamps (+01:00)
       JNOSQL_MONGODB_HOST: mongodb:27017     # overrides jnosql.mongodb.host
       MQTT_BROKER_URL: tcp://mosquitto:1883  # the API publishes pump commands
+      ASSISTANT_SERVICE_KEY: ${ASSISTANT_SERVICE_KEY:-}
       INGEST_KEY: ${INGEST_KEY:-dev-ingest-key}   # Node-RED -> API service key
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-now}
       TENANT_FARMER_REDIRECT: ${FARMER_ORIGIN:-https://www.basilcare.test}/
@@ -57,6 +58,25 @@ services:
     volumes:
       - wildfly-certs:/opt/jboss/wildfly/certs   # keystore survives container replacement
     depends_on: [mongodb, mosquitto]
+
+  assistant:
+    # Internal-only Python service: no published ports; only the API has its service key.
+    image: python:3.12-slim
+    working_dir: /app
+    command: python -m basilcare_assistant.http_server
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 128m
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      ASSISTANT_SERVICE_KEY: ${ASSISTANT_SERVICE_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
+    volumes:
+      - ../iot/ai/service:/app:ro
 
   simulator:
     # Optional virtual Raspberry Pi for demos without hardware:

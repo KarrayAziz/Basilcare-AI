@@ -6,6 +6,11 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
+PUBLIC_SOURCE_URLS = {
+    "https://plants.ces.ncsu.edu/plants/ocimum-basilicum/",
+    "https://extension.usu.edu/yardandgarden/research/basil-in-the-garden",
+}
+
 DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "corpus" / "knowledge.json"
 STOP = set("a an and are as at be been basil by can could do does for from grow growing has have how i in is it its me my of on or our please plant plants should that the their them this to was we what when which why will with would you your".split())
 ALIASES = {"sunlight": "light", "lighting": "light", "sun": "light", "pruning": "prune",
@@ -20,14 +25,23 @@ def tokens(text):
 
 
 class Knowledge:
-    def __init__(self, path=DEFAULT_CORPUS):
+    def __init__(self, path=DEFAULT_CORPUS, public_only=False):
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("version"), str) or not data["version"]:
             raise ValueError("corpus needs a version")
         if (not isinstance(data.get("sources"), list) or not isinstance(data.get("passages"), list)
                 or not isinstance(data.get("notes_license"), str)):
             raise ValueError("corpus needs source/passage lists and a notes licence")
-        self.version = data["version"]
+        if any(not isinstance(item, dict) for item in data["sources"] + data["passages"]):
+            raise ValueError("sources and passages must be objects")
+        self.public_only = public_only
+        if public_only:
+            # Filter before indexing/fingerprinting: project notes cannot reach the cloud provider.
+            data = {**data, "sources": [s for s in data["sources"] if s.get("url") in PUBLIC_SOURCE_URLS]}
+            allowed = {s.get("id") for s in data["sources"] if isinstance(s.get("id"), str)}
+            data["passages"] = [p for p in data["passages"]
+                                if p.get("scope") == "garden" and p.get("source_id") in allowed]
+        self.version = data["version"] + ("-public-garden" if public_only else "")
         self.fingerprint = hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
         self.sources, self.passages = {}, {}
         for source in data["sources"]:

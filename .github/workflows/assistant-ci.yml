@@ -20,11 +20,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Test retrieval, source validation, Ollama protocol and metadata privacy
+      - name: Test retrieval, citations, Ollama/Gemini protocols and metadata privacy
         run: python -m unittest discover -s iot/ai/service/tests -v
       - name: Run the explicit no-model regression baseline
         working-directory: iot/ai/service
         run: python -m basilcare_assistant evaluate --mode extractive --out /tmp/assistant-baseline
+      - name: Check public gardening regression cases without any external API
+        working-directory: iot/ai/service
+        run: python -m basilcare_assistant evaluate --mode extractive --cases evaluation/public-garden.json --out /tmp/assistant-public-baseline
       - name: Publish baseline reports (not actual LLM quality measurements)
         uses: actions/upload-artifact@v4
         with:
@@ -34,3 +37,5 @@ jobs:
             /tmp/assistant-baseline/evaluation.json
             /tmp/assistant-baseline/evaluation.md
             /tmp/assistant-baseline/traces.jsonl
+            /tmp/assistant-public-baseline/evaluation.json
+            /tmp/assistant-public-baseline/evaluation.md

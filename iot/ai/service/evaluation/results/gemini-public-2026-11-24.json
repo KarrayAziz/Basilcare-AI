@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "timestamp": "2026-11-24T01:58:35.777181+00:00",
+  "mode": "gemini",
+  "requested_model": "gemini-3.1-flash-lite",
+  "prompt_version": "cited-evidence-selection-v1",
+  "prompt_sha256": "9529ed84b5027b5d7874dc737714e4b26ef362fc10648c39d31c3ab8279656f3",
+  "corpus_version": "basilcare-notes-2026-11-23-v1-public-garden",
+  "corpus_sha256": "20c7455fc6f40b36873597cb33bc518d78cea50da4ae4bfd256255a953ba2735",
+  "cases_version": "public-garden-regression-1",
+  "cases_sha256": "fc9cd0260965b205d85f2a1d2bf6800f70444ded54d5007d8aa32e9078e325e0",
+  "resolved_models": [
+    "gemini-3.1-flash-lite"
+  ],
+  "model_version_consistent": true,
+  "corpus_scope": "public-garden",
+  "token_usage": {
+    "promptTokenCount": 846,
+    "candidatesTokenCount": 79,
+    "totalTokenCount": 925
+  },
+  "elapsed_ms": 4763.499,
+  "model_digests": [],
+  "model_digest_consistent": true,
+  "generation_requests": 5,
+  "total": 8,
+  "passed": 8,
+  "case_pass_rate": 1.0,
+  "model_errors": 0,
+  "cases": [
+    {
+      "case_id": "light",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-light"
+      ],
+      "actual_passage_ids": [
+        "basil-light"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "f81a1873-b768-476a-985d-b565eb51f2f2"
+    },
+    {
+      "case_id": "prune",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ],
+      "actual_passage_ids": [
+        "basil-pruning"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "13d56c77-836d-4486-a31b-c6f43840159a"
+    },
+    {
+      "case_id": "seeds",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-germination"
+      ],
+      "actual_passage_ids": [
+        "basil-germination"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "1c78bf5a-0974-43f6-8684-36b67c2945dc"
+    },
+    {
+      "case_id": "harvest",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-harvest"
+      ],
+      "actual_passage_ids": [
+        "basil-harvest"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "be3a6707-091b-4ca9-b833-8a05113508cb"
+    },
+    {
+      "case_id": "pests",
+      "category": "knowledge",
+      "expected_status": "answered",
+      "actual_status": "answered",
+      "expected_passage_ids": [
+        "basil-problems"
+      ],
+      "actual_passage_ids": [
+        "basil-problems"
+      ],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "ad10abbe-60ca-4ad9-917d-690d60e81ca8"
+    },
+    {
+      "case_id": "ec-target",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "6e49162b-f761-4123-afcc-1dff701ee7e8"
+    },
+    {
+      "case_id": "reservoir-temperature",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "e36f76ae-d242-4220-a11e-40adb10b1e12"
+    },
+    {
+      "case_id": "outside-topic",
+      "category": "unsupported",
+      "expected_status": "insufficient_evidence",
+      "actual_status": "insufficient_evidence",
+      "expected_passage_ids": [],
+      "actual_passage_ids": [],
+      "citation_integrity": true,
+      "passed": true,
+      "request_id": "0b8a5dd9-10c8-43d0-95c2-7d99db021c82"
+    }
+  ],
+  "passed_all": true
+}

@@ -19,7 +19,9 @@ OPTIONS = {"temperature": 0, "seed": 2026, "num_predict": 256}
 
 
 class ModelUnavailable(RuntimeError):
-    pass
+    def __init__(self, message, code="unavailable"):
+        super().__init__(message)
+        self.code = code
 
 
 class ModelOutputError(ValueError):

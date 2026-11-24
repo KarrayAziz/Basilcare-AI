@@ -26,7 +26,9 @@ def capability_limit(question):
 class Assistant:
     def __init__(self, selector, knowledge=None, trace_path=None):
         self.selector = selector
-        self.knowledge = knowledge or Knowledge()
+        self.knowledge = knowledge or Knowledge(public_only=selector.mode == "gemini")
+        if selector.mode == "gemini" and not self.knowledge.public_only:
+            raise ValueError("Gemini requires the public garden corpus")
         self.trace_path = Path(trace_path) if trace_path else None
 
     def ask(self, question):
@@ -39,10 +41,11 @@ class Assistant:
                   "answer": "I don't know from the curated sources available here.", "citations": []}
         metadata = {"mode": self.selector.mode, "requested_model": self.selector.model,
                     "corpus_version": self.knowledge.version, "corpus_sha256": self.knowledge.fingerprint,
-                    "prompt_version": PROMPT_VERSION if self.selector.mode == "ollama" else None,
-                    "prompt_sha256": PROMPT_SHA256 if self.selector.mode == "ollama" else None,
+                    "prompt_version": PROMPT_VERSION if self.selector.mode != "extractive" else None,
+                    "prompt_sha256": PROMPT_SHA256 if self.selector.mode != "extractive" else None,
                     "retrieved_ids": [], "selected_ids": [], "tools": [], "generation_requested": False,
-                    "question_characters": len(question)}
+                    "question_characters": len(question),
+                    "corpus_scope": "public-garden" if self.knowledge.public_only else "full"}
         boundary = capability_limit(question)
         if boundary:
             result["status"], result["answer"] = boundary
@@ -70,12 +73,25 @@ class Assistant:
                         result.update(status="answered", citations=citations,
                                       answer="\n\n".join(f"{c['text']} [{c['passage_id']}]({c['url']})" for c in citations))
                         metadata["selected_ids"] = ids
-                except ModelUnavailable:
-                    result.update(status="model_unavailable", answer="The local Ollama model is unavailable. No answer was generated.")
+                except ModelUnavailable as error:
+                    messages = {
+                        "invalid_request": "The provider rejected the request configuration.",
+                        "invalid_key": "Check GEMINI_API_KEY.",
+                        "access_denied": "Check the API key permissions and project access.",
+                        "quota_exhausted": "Provider quota or prepaid credits are exhausted. Check project limits and billing.",
+                        "model_not_found": "The requested model is unavailable to this API key. Choose another model ID.",
+                        "provider_unavailable": "The provider is temporarily unavailable. Try again later.",
+                        "connection_failed": "The provider could not be reached. Check your connection.",
+                    }
+                    code = error.code if error.code in messages else "unavailable"
+                    metadata["provider_error"] = code
+                    message = messages.get(code, "The selected model is unavailable.")
+                    result.update(status="model_unavailable", answer=message + " No answer was generated.")
                 except ModelOutputError:
                     result.update(status="invalid_model_output", answer="The model did not return valid source selections. No answer was generated.")
         for key in ("generation_requested", "baseline", "resolved_model", "model_digest", "options",
-                    "prompt_eval_count", "eval_count", "total_duration"):
+                    "prompt_eval_count", "eval_count", "total_duration", "promptTokenCount",
+                    "candidatesTokenCount", "totalTokenCount", "thoughtsTokenCount"):
             if key in self.selector.last_metadata:
                 metadata[key] = self.selector.last_metadata[key]
         metadata["elapsed_ms"] = round((time.monotonic() - started) * 1000, 3)

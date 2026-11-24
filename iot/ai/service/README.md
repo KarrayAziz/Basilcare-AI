@@ -1,7 +1,7 @@
-# Cited knowledge assistant — first step
+# Cited knowledge assistant
 
 A read-only command-line foundation for US-17 and initial US-20 tracing/evaluation.
-It retrieves curated notes, asks a **local Ollama model to select relevant passage IDs**,
+It retrieves curated notes, asks an **explicitly selected Ollama or Gemini model to select relevant passage IDs**,
 validates that selection, then returns the original notes with their source links.
 The model does not write the final prose, invent citation URLs or call device tools.
 
@@ -21,7 +21,7 @@ python3 -m basilcare_assistant evaluate --mode extractive --out runs/baseline-00
 
 Extractive mode returns the first lexically retrieved note. It is a software baseline,
 **not an LLM**, and cannot reliably decide whether a note answers every nuance of a
-question. It is never substituted silently when Ollama fails.
+question. It is never substituted silently when a model provider fails.
 
 ## Use your installed local Ollama model
 
@@ -55,6 +55,57 @@ cause an error rather than an uncited answer. An empty valid selection means "I 
 know". Missing models produce an explicit failure, not a download. Use `--json` to inspect
 the result status and metadata.
 
+## Use Gemini explicitly (external API)
+
+Gemini is opt-in with `--mode gemini`. Ollama remains the default; no request switches
+providers automatically. Only the curated **public garden** notes from NC State and
+Utah State are indexed in this mode. Project/pump/camera notes are excluded before
+retrieval and fingerprinting. The question you type and retrieved garden notes are sent
+to Google. Do not include private data in a cloud question. Google/provider retention
+and billing rules are separate from our metadata-only local traces.
+
+Set `GEMINI_API_KEY` in your shell environment, or put it in the existing ignored
+`deploy/.env` and pass that file explicitly. The environment takes precedence. The loader
+reads only a literal `GEMINI_API_KEY`; it never executes/sources the file, interpolates
+shell expressions or loads other secrets. Never paste a real key into code or Git.
+No pip package, Docker change or service restart is required for this terminal helper.
+
+```bash
+# From iot/ai/service, using the key already saved in deploy/.env:
+python3 -m basilcare_assistant ask "How should I prune basil?" --mode gemini \
+  --env-file ../../../deploy/.env --json --trace runs/gemini-traces.jsonl
+
+python3 -m basilcare_assistant evaluate --mode gemini \
+  --env-file ../../../deploy/.env --out runs/gemini-public-001
+```
+
+The default is `gemini-3.1-flash-lite`, overridable with `--model` or `GEMINI_MODEL`.
+Availability and quotas depend on your project. `--timeout` also applies here (1–120 seconds).
+The fixed HTTPS Google endpoint receives the key in a header, never a URL. Environment
+proxies and HTTP redirects are disabled; no automatic retries or model downloads occur.
+Gemini uses a JSON passage-ID schema, temperature 0 and a 256-token output limit. The
+same application validation rejects invented IDs, duplicate IDs, extra fields, tool calls,
+blocked or incomplete replies. Final prose and links still come from our curated notes.
+
+Quota/prepaid-credit exhaustion, invalid keys, access denial, unavailable models and
+connection failures produce sanitized errors. They never silently fall back to baseline
+answers. Error bodies, credentials and HTTP headers are not logged. A temporary service
+error requires a fresh explicit command if you wish to retry.
+
+Gemini evaluation defaults to [`evaluation/public-garden.json`](evaluation/public-garden.json):
+eight cases (five garden questions that call the model and three unsupported questions
+that abstain locally). It never defaults to the full project/pump suite. Custom `--cases`
+files are explicit inputs: review their questions before using a cloud provider. Expected
+IDs must belong to the public garden corpus or the run is rejected before any API call.
+This is a small regression set, not comprehensive agronomic or safety validation.
+
+Reports record the requested model, provider-returned version, prompt/corpus hashes,
+settings, total elapsed time and reported token usage. Gemini exposes a version string,
+**not a downloadable weight digest**; an unchanged string is not proof that provider
+weights/runtime are immutable. Mixed reported versions, zero model calls and model errors
+cannot produce an overall model-evaluation pass. Tests in CI use scripted replies only;
+real cloud evaluations are manual and their ignored `runs/` directories are local.
+
 ## Corpus and limits
 
 [`corpus/knowledge.json`](corpus/knowledge.json) contains seven short original notes:
@@ -75,7 +126,7 @@ This is not a plant-diagnosis feature.
 English capability checks reject action requests, live-data queries and diagnosis requests
 before model calls. These are conservative helpers, not a complete natural-language
 authorization system. The structural boundary is that **no API/MQTT/device tool exists
-here**; the only network client calls local Ollama tags/chat endpoints. Later MCP work
+here**; network clients are limited to local Ollama or the explicitly selected Google Gemini API. Later MCP work
 must preserve the existing API token, role, confirmation and safety checks.
 
 ## Initial traces and regression reports
@@ -83,9 +134,9 @@ must preserve the existing API token, role, confirmation and safety checks.
 `ask --trace` is optional. An explicitly requested evaluation writes traces in its new
 output directory. JSONL includes request ID/status, corpus/prompt version and hash,
 retrieved/selected IDs, requested/resolved model and digest, settings, duration and token
-counts when available. The helper does **not** store question text, full prompts, answer
+counts when available. Gemini traces also record corpus scope and sanitized provider error codes. The helper does **not** store question text, full prompts, answer
 text, conversations, authorization tokens or live device data. This describes these helper
-files, not Ollama's own logging settings.
+files, not provider logging or retention settings.
 
 [`evaluation/cases.json`](evaluation/cases.json) has 15 simple regression questions covering
 known topics, insufficient evidence, capability refusals and an instruction-override attempt.
@@ -97,6 +148,10 @@ are never overwritten; `runs/` is ignored by Git.
 errors. `evaluate` exits 0 only if all cases pass consistently, 2 for failed cases, and
 1 for input/report errors.
 
+A manual Gemini 3.1 Flash-Lite run passed all eight public cases on November 24, 2026:
+five API calls, 925 tokens and about 4.8 seconds. See the [sanitized result and limits](evaluation/results/README.md).
+These measurements describe one run, not guaranteed latency or general model quality.
+
 ## Verification and remaining work
 
 ```bash
@@ -105,12 +160,12 @@ python3 -m unittest discover -s iot/ai/service/tests -v
 ```
 
 CI runs software tests and the explicit extractive baseline, then publishes baseline
-reports. The Ollama adapter is tested with scripted API responses, **not a real neural
-model**. Baseline/mock scores must not be presented as actual Ollama quality. Run the
-evaluation with an installed model before making that claim. This first PR does not
+reports. Both adapters are tested with scripted API responses in CI, **not real neural
+models**. Baseline/mock scores must not be presented as actual model quality. Run an
+explicit provider evaluation before making that claim. This first PR does not
 automatically promote or deploy an assistant.
 
-Next stages: actual local-model evaluation, authenticated API/PWA integration, read-only
+Next stages: actual local-model evaluation, broader model evaluations, authenticated API/PWA integration, read-only
 MCP tools and broader LLMOps checks. US-17/US-20 are only partially implemented;
 US-18/US-19 and complete LLMOps remain unfinished.
 
@@ -120,6 +175,9 @@ US-18/US-19 and complete LLMOps remain unfinished.
 - Ollama: [chat](https://docs.ollama.com/api/chat),
   [structured outputs](https://docs.ollama.com/capabilities/structured-outputs),
   [local model list](https://docs.ollama.com/api/tags).
-- OpenAI Codex assisted Aziz Karray with corpus summaries, retrieval, the local adapter,
+- Gemini: [structured output](https://ai.google.dev/gemini-api/docs/structured-output),
+  [generateContent](https://ai.google.dev/api/generate-content).
+- OpenAI Codex assisted Aziz Karray with Gemini support, public-only cloud evaluation,
+  sanitized errors and protocol tests, as well as corpus summaries, retrieval, the local adapter,
   citations, metadata traces, tests and documentation. The attribution prompt journal
   remains a separate team follow-up.

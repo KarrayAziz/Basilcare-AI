@@ -58,6 +58,14 @@ if [ ! -f deploy/.env ]; then
 else
     echo "using the existing deploy/.env"
 fi
+# Add a dedicated service credential to existing configs without touching user/API passwords.
+if [ -z "$(env_value ASSISTANT_SERVICE_KEY)" ]; then
+    assistant_config="$(mktemp)"
+    awk '!/^ASSISTANT_SERVICE_KEY=/' deploy/.env > "$assistant_config"
+    printf '\nASSISTANT_SERVICE_KEY=%s\n' "$(random)" >> "$assistant_config"
+    cat "$assistant_config" > deploy/.env
+    rm -f "$assistant_config"
+fi
 HOST="$(env_value TLS_HOSTNAME)"; HOST="${HOST:-basilcare.test}"
 PORT="$(env_value HTTPS_PORT)"; PORT="${PORT:-443}"
 ORIGIN="https://$HOST"; [ "$PORT" = 443 ] || ORIGIN="$ORIGIN:$PORT"
@@ -119,6 +127,9 @@ fi
 
 say "Starting the stack"
 "${COMPOSE[@]}" up -d --no-build --remove-orphans
+# Python imports the read-only source mount once. Compose may keep this container
+# unchanged after a code update, even when --build replaced the WildFly image.
+"${COMPOSE[@]}" restart assistant
 
 say "Waiting for WildFly (first start takes about a minute)"
 if ! bash deploy/wait_ready.sh "https://localhost:$PORT" 60; then

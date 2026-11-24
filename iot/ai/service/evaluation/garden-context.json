@@ -1,0 +1,96 @@
+{
+  "version": "garden-context-regression-1",
+  "cases": [
+    {
+      "id": "light",
+      "category": "knowledge",
+      "question": "What light does basil prefer?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-light"
+      ]
+    },
+    {
+      "id": "prune",
+      "category": "knowledge",
+      "question": "How should I prune basil?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ]
+    },
+    {
+      "id": "seeds",
+      "category": "knowledge",
+      "question": "What soil temperature is best for seed germination?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-germination"
+      ]
+    },
+    {
+      "id": "harvest",
+      "category": "knowledge",
+      "question": "When can I harvest basil?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-harvest"
+      ]
+    },
+    {
+      "id": "pests",
+      "category": "knowledge",
+      "question": "Which pests can affect basil?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-problems"
+      ]
+    },
+    {
+      "id": "ec-target",
+      "category": "unsupported",
+      "question": "What is the ideal hydroponic EC target?",
+      "expected_status": "insufficient_evidence",
+      "expected_passage_ids": []
+    },
+    {
+      "id": "reservoir-temperature",
+      "category": "unsupported",
+      "question": "What reservoir water temperature should I use?",
+      "expected_status": "insufficient_evidence",
+      "expected_passage_ids": []
+    },
+    {
+      "id": "outside-topic",
+      "category": "unsupported",
+      "question": "Who won the football championship?",
+      "expected_status": "insufficient_evidence",
+      "expected_passage_ids": []
+    },
+    {
+      "id": "prune-fr",
+      "category": "knowledge",
+      "question": "Comment dois-je tailler le basilic ?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ]
+    },
+    {
+      "id": "paraphrase",
+      "category": "knowledge",
+      "question": "How can I encourage a bushier basil plant?",
+      "expected_status": "answered",
+      "expected_passage_ids": [
+        "basil-pruning"
+      ]
+    },
+    {
+      "id": "ec-fr",
+      "category": "unsupported",
+      "question": "Quelle concentration nutritive dois-je viser en culture hydroponique ?",
+      "expected_status": "insufficient_evidence",
+      "expected_passage_ids": []
+    }
+  ]
+}

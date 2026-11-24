@@ -4,8 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
-from .selectors import PROMPT_SHA256, PROMPT_VERSION
 
+CONTEXT_CASES = Path(__file__).resolve().parents[1] / "evaluation" / "garden-context.json"
 PUBLIC_CASES = Path(__file__).resolve().parents[1] / "evaluation" / "public-garden.json"
 DEFAULT_CASES = Path(__file__).resolve().parents[1] / "evaluation" / "cases.json"
 
@@ -23,6 +23,9 @@ def citation_integrity(result, knowledge):
         source = knowledge.sources[passage["source_id"]]
         if citation["url"] != source["url"] or citation["source_id"] != source["id"]:
             return False
+    if result.get("metadata", {}).get("answer_mode") == "generated-with-context":
+        # Source integrity is structural, not proof every generated claim follows the notes.
+        return isinstance(result["answer"], str) and bool(result["answer"].strip())
     expected_answer = "\n\n".join(f"{c['text']} [{c['passage_id']}]({c['url']})" for c in citations)
     return result["answer"] == expected_answer
 
@@ -46,6 +49,7 @@ def evaluate(assistant, cases_path, out):
     token_usage = {}
     elapsed_ms = 0.0
     generation_requests = 0
+    prompt_versions, prompt_hashes = set(), set()
     for case in cases:
         result = assistant.ask(case["question"])
         ids = [c["passage_id"] for c in result["citations"]]
@@ -60,6 +64,9 @@ def evaluate(assistant, cases_path, out):
             digests.add(result["metadata"]["model_digest"])
         generation_requests += bool(result["metadata"].get("generation_requested"))
         metadata = result["metadata"]
+        if metadata.get("prompt_version"):
+            prompt_versions.add(metadata["prompt_version"])
+            prompt_hashes.add(metadata["prompt_sha256"])
         if metadata.get("resolved_model"):
             versions.add(metadata["resolved_model"])
         elapsed_ms += metadata["elapsed_ms"]
@@ -73,8 +80,9 @@ def evaluate(assistant, cases_path, out):
     version_consistent = len(versions) <= 1
     report = {"schema_version": 1, "timestamp": datetime.now(timezone.utc).isoformat(),
               "mode": assistant.selector.mode, "requested_model": assistant.selector.model,
-              "prompt_version": PROMPT_VERSION if assistant.selector.mode != "extractive" else None,
-              "prompt_sha256": PROMPT_SHA256 if assistant.selector.mode != "extractive" else None,
+              "prompt_version": next(iter(prompt_versions)) if len(prompt_versions) == 1 else None,
+              "prompt_sha256": next(iter(prompt_hashes)) if len(prompt_hashes) == 1 else None,
+              "answer_mode": "generated-with-context" if assistant.selector.mode == "gemini" else "extractive",
               "corpus_version": assistant.knowledge.version, "corpus_sha256": assistant.knowledge.fingerprint,
               "cases_version": specification["version"], "cases_sha256": hashlib.sha256(raw).hexdigest(),
               "resolved_models": sorted(versions), "model_version_consistent": version_consistent,
@@ -83,7 +91,7 @@ def evaluate(assistant, cases_path, out):
               "model_digests": sorted(digests), "model_digest_consistent": consistent,
               "generation_requests": generation_requests, "total": len(rows), "passed": passed,
               "case_pass_rate": passed / len(rows), "model_errors": errors, "cases": rows}
-    report["passed_all"] = (passed == len(rows) and consistent and version_consistent and not errors
+    report["passed_all"] = (passed == len(rows) and consistent and version_consistent and len(prompt_hashes) <= 1 and not errors
                             and (assistant.selector.mode == "extractive" or generation_requests > 0))
     (out / "evaluation.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     lines = ["# Assistant regression evaluation", "", f"Mode: **{report['mode']}**", "",

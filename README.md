@@ -28,7 +28,7 @@ iot/
   simulator/            simulated gateway
   ai/
     model/              leaf-model training and evaluation
-    service/            planned AI assistant
+    service/            cited assistant (CLI and Farmer chat)
 ```
 
 Deployment scripts, documentation and Postman collections remain in `deploy/`, `docs/`
@@ -48,7 +48,7 @@ See the [migration notes](docs/repository-structure.md) when updating an existin
 | [`frontends/frontoffice/`](frontends/frontoffice/README.md), [`frontends/backoffice/`](frontends/backoffice/README.md) | installable PWAs: live dashboard, alerts, pump, screening / registry, alert ranges, audit | 🟡 needs a browser check |
 | [`deploy/`](deploy/README.md) | Compose stack, broker config, `.env.example`, `setup.sh`, `deploy.sh`, [end-to-end smoke test](deploy/smoke_test.py) | ✅ smoke test passes |
 | [`postman/`](postman/README.md) | API collection (28 requests, OAuth 2.0 PKCE) | 🟡 not yet run in Postman |
-| [`iot/ai/service/`](iot/ai/service/README.md) | cited CLI assistant, local Ollama adapter, initial traces/evaluation | 🟡 foundation; real-model evaluation, PWA/MCP integration and full LLMOps remain |
+| [`iot/ai/service/`](iot/ai/service/README.md) | cited CLI/Farmer assistant, Ollama/Gemini adapters, traces/evaluation | 🟡 public gardening chat; MCP/live-data tools and full LLMOps remain |
 
 ## Quick start (macOS, Linux or Windows; only Docker Desktop needed)
 
@@ -88,6 +88,8 @@ python deploy/smoke_test.py --password change-me-now        # end-to-end check, 
 
 The dev override mounts your locally built WARs and the frontend folders, so frontend edits
 are live and a Java change needs only `docker compose -f deploy/compose.yaml restart wildfly`.
+The signed-in Farmer app includes an **Assistant** page for public basil-care questions. Set `GEMINI_API_KEY` in the ignored `deploy/.env`; `start.sh` generates the internal service credential. See [assistant setup and scope](docs/farmer-assistant.md).
+
 See [four local domains and migration](docs/four-local-domains.md) and [WildFly hosting](deploy/wildfly/README.md) for the CLI configuration, HTTPS and
 offline/login isolation.
 

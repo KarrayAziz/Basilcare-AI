@@ -42,3 +42,8 @@ th, td { padding: .5rem; text-align: left; border-bottom: 1px solid #e8eee6; fon
 .camera canvas.stale { filter: grayscale(1); opacity: .6; }
 .camera-tags { list-style: none; padding: 0; margin: .4rem 0; display: flex; flex-wrap: wrap; gap: .4rem; }
 .camera-tags .tag { margin-left: 0; font-size: .85rem; }
+
+#assistant-question { display: block; width: 100%; box-sizing: border-box; margin: .6rem 0; padding: .6rem; border: 1px solid #c5d3c2; border-radius: 6px; font: inherit; resize: vertical; }
+.assistant-message { margin-top: 1rem; overflow-wrap: anywhere; }
+.assistant-answer { white-space: pre-wrap; }
+#assistant-send:disabled { opacity: .6; cursor: wait; }

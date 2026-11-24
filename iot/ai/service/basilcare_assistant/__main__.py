@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 from .assistant import Assistant
-from .evaluation import DEFAULT_CASES, PUBLIC_CASES, evaluate
+from .evaluation import DEFAULT_CASES, CONTEXT_CASES, evaluate
 from .knowledge import DEFAULT_CORPUS, Knowledge
 from .selectors import ExtractiveSelector, OllamaSelector
 from .gemini import DEFAULT_MODEL, GeminiSelector, load_api_key
@@ -42,7 +42,7 @@ def main(argv=None):
         assistant = Assistant(selector, Knowledge(args.corpus, public_only=args.mode == "gemini"),
                               getattr(args, "trace", None))
         if args.command == "evaluate":
-            report = evaluate(assistant, args.cases or (PUBLIC_CASES if args.mode == "gemini" else DEFAULT_CASES), args.out)
+            report = evaluate(assistant, args.cases or (CONTEXT_CASES if args.mode == "gemini" else DEFAULT_CASES), args.out)
             print(f"{report['mode']}: {report['passed']}/{report['total']} cases passed; report: {args.out / 'evaluation.md'}")
             return 0 if report["passed_all"] else 2
         result = assistant.ask(args.question)

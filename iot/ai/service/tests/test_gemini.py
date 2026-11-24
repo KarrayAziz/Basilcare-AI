@@ -13,10 +13,10 @@ from urllib.error import HTTPError, URLError
 SERVICE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVICE))
 from basilcare_assistant.assistant import Assistant
-from basilcare_assistant.evaluation import DEFAULT_CASES, PUBLIC_CASES, evaluate
-from basilcare_assistant.gemini import GeminiSelector, load_api_key, request_gemini
+from basilcare_assistant.evaluation import DEFAULT_CASES, PUBLIC_CASES, CONTEXT_CASES, evaluate
+from basilcare_assistant.gemini import GeminiSelector, load_api_key, request_gemini, PROMPT_SHA256
 from basilcare_assistant.knowledge import DEFAULT_CORPUS, Knowledge
-from basilcare_assistant.selectors import ModelUnavailable, ModelOutputError, PROMPT_SHA256
+from basilcare_assistant.selectors import ModelUnavailable, ModelOutputError
 
 SECRET = "fixture-key-not-a-real-secret"
 
@@ -29,7 +29,10 @@ class FakeGemini:
     def __call__(self, model, body, key, timeout):
         self.calls.append((model, body, key, timeout))
         context = json.loads(body["contents"][0]["parts"][0]["text"])
-        content = self.content or json.dumps({"passage_ids": [context["passages"][0]["id"]]})
+        # Scripted regression fixture, not language understanding or a model quality score.
+        cases = json.loads(CONTEXT_CASES.read_text())["cases"]
+        ids = next((c["expected_passage_ids"] for c in cases if c["question"] == context["question"]), ["basil-light"])
+        content = self.content or json.dumps({"answer": "Fixture answer." if ids else "Insufficient context.", "passage_ids": ids})
         return {"modelVersion": "gemini-fixture-001", "candidates": [{"finishReason": self.finish,
                 "content": {"parts": self.parts if self.parts is not None else [{"text": content}]}}],
                 "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 10, "totalTokenCount": 110}}
@@ -78,8 +81,8 @@ class GeminiTest(unittest.TestCase):
             report = evaluate(Assistant(selector), PUBLIC_CASES, out)
             self.assertTrue(report["passed_all"])
             self.assertEqual(report["total"], 8)
-            self.assertEqual(report["generation_requests"], 5)
-            self.assertEqual(report["token_usage"]["totalTokenCount"], 550)
+            self.assertEqual(report["generation_requests"], 8)
+            self.assertEqual(report["token_usage"]["totalTokenCount"], 880)
             self.assertEqual(report["resolved_models"], ["gemini-fixture-001"])
             self.assertEqual(report["prompt_sha256"], PROMPT_SHA256)
             self.assertEqual(report["corpus_scope"], "public-garden")
@@ -93,7 +96,7 @@ class GeminiTest(unittest.TestCase):
         self.assertEqual(body["generationConfig"]["responseSchema"]["properties"]["passage_ids"]["maxItems"], 2)
 
     def test_opaque_provider_signature_is_accepted_but_never_traced(self):
-        fake = FakeGemini(parts=[{"text": '{"passage_ids":["basil-light"]}',
+        fake = FakeGemini(parts=[{"text": '{"answer":"Fixture answer.","passage_ids":["basil-light"]}',
                                   "thoughtSignature": "opaque-provider-signature"}])
         result = Assistant(GeminiSelector(SECRET, transport=fake)).ask("basil light")
         self.assertEqual(result["status"], "answered")
@@ -101,7 +104,7 @@ class GeminiTest(unittest.TestCase):
 
     def test_bad_output_tools_blocked_and_missing_versions_fail_closed(self):
         for fake in (FakeGemini(content="not-json"), FakeGemini(content='{"passage_ids":["fake"]}'),
-                     FakeGemini(content='{"passage_ids":["basil-light"],"answer":"extra"}'),
+                     FakeGemini(content='{"passage_ids":["basil-light"],"answer":"extra","unexpected":true}'),
                      FakeGemini(finish="MAX_TOKENS"), FakeGemini(finish="SAFETY"),
                      FakeGemini(parts=[{"functionCall": {"name": "pump"}}])):
             with self.subTest(fake=fake):
@@ -134,12 +137,33 @@ class GeminiTest(unittest.TestCase):
             self.assertEqual(report["passed"], 8)
             self.assertFalse(report["model_version_consistent"])
             self.assertFalse(report["passed_all"])
-            path = Path(tmp) / "cases.json"
-            data = json.loads(PUBLIC_CASES.read_text())
-            data["cases"] = [c for c in data["cases"] if c["category"] == "unsupported"]
-            path.write_text(json.dumps(data))
-            report = evaluate(Assistant(GeminiSelector(SECRET)), path, Path(tmp) / "no-calls")
+            selector = GeminiSelector(SECRET, transport=FakeGemini())
+            original = selector.select
+            def no_request_metadata(*args):
+                result = original(*args)
+                selector.last_metadata["generation_requested"] = False
+                return result
+            selector.select = no_request_metadata
+            report = evaluate(Assistant(selector), PUBLIC_CASES, Path(tmp) / "no-calls")
             self.assertFalse(report["passed_all"])
+
+    def test_french_and_paraphrases_receive_all_notes_without_keyword_search(self):
+        knowledge = Knowledge(public_only=True)
+        knowledge.retrieve = lambda *args: self.fail("Cloud context must not use keyword retrieval")
+        fake = FakeGemini()
+        assistant = Assistant(GeminiSelector(SECRET, transport=fake), knowledge)
+        for question in ("Comment dois-je tailler le basilic ?", "How can I encourage a bushier basil plant?"):
+            result = assistant.ask(question)
+            self.assertEqual(result["status"], "answered")
+            self.assertEqual(result["metadata"]["selected_ids"], ["basil-pruning"])
+            context = json.loads(fake.calls[-1][1]["contents"][0]["parts"][0]["text"])
+            self.assertEqual(len(context["passages"]), 5)
+            self.assertEqual(result["answer"], "Fixture answer.")
+        for content in ('{"answer":"Uncited URL https://bad.example","passage_ids":["basil-pruning"]}',
+                        '{"answer":"","passage_ids":["basil-pruning"]}',
+                        '{"answer":"Made up","passage_ids":["fake"]}'):
+            result = Assistant(GeminiSelector(SECRET,transport=FakeGemini(content=content))).ask("prune")
+            self.assertEqual(result["status"], "invalid_model_output")
 
     def test_transport_has_fixed_destination_header_key_and_sanitized_errors(self):
         opener = MagicMock()
